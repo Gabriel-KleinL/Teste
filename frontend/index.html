@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Otimização de Rotas de Entrega — Espírito Santo</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🚚</text></svg>" />
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-icon">🚚</span>
+    <div class="brand-text">
+      <h1>Rotas ES — Otimização de Entregas</h1>
+      <p>Grafos &amp; VRP aplicados ao Espírito Santo · Trabalho Acadêmico</p>
+    </div>
+  </div>
+
+  <div class="scenario-controls">
+    <span class="label">Frota:</span>
+    <button id="btn-remove-vehicle" class="btn-icon" title="Remover veículo">−</button>
+    <span id="fleet-size-display" class="fleet-size">1 veículo</span>
+    <button id="btn-add-vehicle" class="btn-icon" title="Adicionar veículo">+</button>
+
+    <label class="naive-toggle">
+      <input type="checkbox" id="chk-naive" />
+      Mostrar rota ingênua (sem otimização)
+    </label>
+  </div>
+
+  <div class="clock-controls">
+    <div class="sim-clock">
+      <span class="clock-label">Relógio simulado</span>
+      <span id="sim-clock-display">06:00</span>
+    </div>
+    <button id="btn-play" class="btn-play">▶ Play</button>
+    <button id="btn-reset" class="btn-reset" title="Reiniciar simulação">⟲</button>
+    <div class="speed-control">
+      <span class="label">Velocidade</span>
+      <select id="sel-speed">
+        <option value="1">1×</option>
+        <option value="5">5×</option>
+        <option value="20" selected>20×</option>
+        <option value="60">60×</option>
+      </select>
+    </div>
+  </div>
+</header>
+
+<main class="layout">
+  <section class="map-wrap">
+    <div id="map"></div>
+    <div id="map-loading" class="map-loading">Carregando dados de rotas…</div>
+  </section>
+
+  <aside class="sidebar">
+    <div class="panel panel-summary">
+      <h2>Resumo da Operação</h2>
+      <div id="summary-grid" class="summary-grid"></div>
+      <div id="summary-compare" class="summary-compare"></div>
+    </div>
+
+    <div class="panel panel-fleet">
+      <h2>Gestão da Frota</h2>
+      <div id="fleet-list" class="fleet-list"></div>
+    </div>
+  </aside>
+</main>
+
+<footer class="footer">
+  Fonte das rotas: OSRM (roteamento real por rodovia) · Coordenadas e população: IBGE ·
+  Heurísticas: Vizinho mais próximo + 2-opt (TSP) / Varredura angular + TSP por veículo (VRP)
+</footer>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/data.js"></script>
+<script src="js/map.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
