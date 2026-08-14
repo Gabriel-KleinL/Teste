@@ -1,22 +1,35 @@
 /**
  * Estado da aplicacao, orquestracao da simulacao (relogio simulado,
  * animacao dos veiculos) e renderizacao dos paineis de frota/resumo.
+ *
+ * O numero de veiculos e livremente customizavel pelo usuario (qualquer
+ * quantidade). O VRP e resolvido ao vivo no navegador (js/otimizacao.js)
+ * sobre a matriz completa de tempo/distancia real embutida em
+ * solution.json. Dois indicadores avisam o usuario quando a frota
+ * escolhida excede o necessario:
+ *   - "veiculos ociosos": quando ha mais veiculos do que municipios de
+ *     entrega, o excedente fica sem rota atribuida.
+ *   - "sem ganho": quando o veiculo adicional nao reduziu o tempo total
+ *     da operacao (makespan) em relacao a um veiculo a menos - situacao
+ *     real observada neste problema (ver relatorio, ex.: k=6 e k=7 ou
+ *     k=9,10,11 empatam no makespan).
  */
 
 const state = {
-  nVeiculos: 1,
-  maxFrota: 1,
-  veiculos: [], // { idx, cor, tourNomes, municipiosAtendidos, distKm, tempoMin, trilha, departureMin, carMarker, status }
+  nVeiculosSolicitados: 1,
+  nMunicipiosEntrega: 0,
+  rotas: [], // { idx, cor, tourNomes, municipiosAtendidos, distKm, tempoMin, trilha, departureMin, carMarker, status, idle }
   simClockMin: 360, // 06:00
   playing: false,
   speedMinPorSeg: 20,
   showNaive: false,
   naiveTrilha: null,
-  tempoSingleVehicleMin: null,
   tempoIngenuoMin: null,
   distIngenuoKm: null,
+  makespanCache: {}, // n -> makespan (so tempo, sem geometria) para detectar "sem ganho"
   lastFrameTs: null,
   lastPanelRefresh: 0,
+  carregando: false,
 };
 
 function formatMin(min) {
@@ -43,19 +56,71 @@ function minToTimeStr(min) {
   return `${h}:${m}`;
 }
 
+// ---------------------------------------------------------------- calculo (puro, sem geometria)
+
+/** Calcula so o makespan (mais rapido, sem buscar geometria) - usado para comparacoes. */
+function calcularMakespan(n) {
+  if (state.makespanCache[n] !== undefined) return state.makespanCache[n];
+  const cdIdx = AppData.getCdId();
+  const indicesEntrega = AppData.getIndicesEntrega();
+  const { rotas } = Otimizacao.resolverVRP(
+    indicesEntrega,
+    cdIdx,
+    AppData.getMunicipiosPorId(),
+    AppData.getMatrizDist(),
+    AppData.getMatrizTempo(),
+    n
+  );
+  const makespan = Math.max(...rotas.map((r) => r.tempoMin));
+  state.makespanCache[n] = makespan;
+  return makespan;
+}
+
 // ---------------------------------------------------------------- cenario
 
-function carregarCenario(n) {
-  state.nVeiculos = Math.max(1, Math.min(n, state.maxFrota));
+async function gerarCenario(nSolicitado) {
+  const n = Math.max(1, Math.round(nSolicitado));
+  state.nVeiculosSolicitados = n;
+  state.carregando = true;
+  document.getElementById("map-loading").style.display = "flex";
+  document.getElementById("map-loading").textContent = "Calculando rotas…";
 
-  const cenario = AppData.getCenario(state.nVeiculos);
+  const cdIdx = AppData.getCdId();
+  const indicesEntrega = AppData.getIndicesEntrega();
+  const municipiosPorId = AppData.getMunicipiosPorId();
+  const matrizDist = AppData.getMatrizDist();
+  const matrizTempo = AppData.getMatrizTempo();
+
+  const { rotas: rotasBrutas, nUtil, nIdle } = Otimizacao.resolverVRP(
+    indicesEntrega,
+    cdIdx,
+    municipiosPorId,
+    matrizDist,
+    matrizTempo,
+    n
+  );
+  state.makespanCache[nUtil] = Math.max(...rotasBrutas.filter((r) => !r.idle).map((r) => r.tempoMin));
+
+  // garante a geometria real (cache pre-aquecido ou busca ao vivo no OSRM) de todos os trechos usados
+  const paresNecessarios = [];
+  rotasBrutas.forEach((r) => {
+    for (let k = 0; k < r.tourIds.length - 1; k++) {
+      if (r.tourIds[k] !== r.tourIds[k + 1]) paresNecessarios.push([r.tourIds[k], r.tourIds[k + 1]]);
+    }
+  });
+  await AppData.garantirArestas(paresNecessarios, (feitos, total) => {
+    document.getElementById("map-loading").textContent = `Buscando rotas reais no OSRM… (${feitos}/${total})`;
+  });
+
   MapView.limparRotas();
-
   const trilhas = [];
-  state.veiculos = cenario.rotas.map((r, idx) => {
+  state.rotas = rotasBrutas.map((r, idx) => {
     const trilha = AppData.montarTrilha(r.tourIds);
-    const carMarker = MapView.desenharRota(idx, trilha, trilha.paradas);
-    trilhas.push(trilha);
+    let carMarker = null;
+    if (!r.idle) {
+      carMarker = MapView.desenharRota(idx, trilha, trilha.paradas);
+      trilhas.push(trilha);
+    }
     return {
       idx,
       cor: MapView.corVeiculo(idx),
@@ -66,19 +131,57 @@ function carregarCenario(n) {
       trilha,
       departureMin: 480 + idx * 90, // padrao: 08:00, 09:30, 11:00, ...
       carMarker,
-      status: "aguardando",
+      status: r.idle ? "ocioso" : "aguardando",
+      idle: r.idle,
     };
   });
 
-  MapView.ajustarZoomPara(trilhas);
+  if (trilhas.length) MapView.ajustarZoomPara(trilhas);
 
-  document.getElementById("fleet-size-display").textContent =
-    state.nVeiculos === 1 ? "1 veículo" : `${state.nVeiculos} veículos`;
+  atualizarDisplayFrota(n);
+  atualizarBanner(n, nUtil, nIdle);
 
   resetarRelogio();
   renderFleetPanel();
   renderSummaryPanel();
   atualizarIngenua();
+
+  state.carregando = false;
+  document.getElementById("map-loading").style.display = "none";
+}
+
+function atualizarDisplayFrota(n) {
+  document.getElementById("input-fleet-size").value = n;
+  document.getElementById("fleet-size-suffix").textContent = n === 1 ? "veículo" : "veículos";
+}
+
+function atualizarBanner(nSolicitado, nUtil, nIdle) {
+  const banner = document.getElementById("fleet-banner");
+
+  if (nIdle > 0) {
+    banner.hidden = false;
+    banner.className = "fleet-banner banner-idle";
+    banner.textContent =
+      `⚠ Você configurou ${nSolicitado} veículos, mas há apenas ${state.nMunicipiosEntrega} municípios de entrega. ` +
+      `${nIdle} veículo(s) ficará(ão) parado(s) no CD, sem rota atribuída — não são necessários para esta operação.`;
+    return;
+  }
+
+  if (nUtil > 1) {
+    const makespanAtual = state.makespanCache[nUtil];
+    const makespanAnterior = calcularMakespan(nUtil - 1);
+    if (makespanAtual >= makespanAnterior - 1e-6) {
+      banner.hidden = false;
+      banner.className = "fleet-banner banner-no-gain";
+      banner.textContent =
+        `ℹ Adicionar este veículo (${nUtil}ª unidade) não reduziu o tempo total da operação ` +
+        `em relação a ${nUtil - 1} veículo(s) (${formatMin(makespanAnterior)} → ${formatMin(makespanAtual)}). ` +
+        `A frota atual já é suficiente.`;
+      return;
+    }
+  }
+
+  banner.hidden = true;
 }
 
 function atualizarIngenua() {
@@ -98,10 +201,24 @@ function renderFleetPanel() {
   const container = document.getElementById("fleet-list");
   container.innerHTML = "";
 
-  state.veiculos.forEach((v) => {
+  state.rotas.forEach((v) => {
     const card = document.createElement("div");
-    card.className = "vehicle-card";
-    card.style.borderLeftColor = v.cor;
+    card.className = "vehicle-card" + (v.idle ? " idle" : "");
+    card.style.borderLeftColor = v.idle ? "var(--gray-400)" : v.cor;
+
+    if (v.idle) {
+      card.innerHTML = `
+        <div class="vehicle-card-header">
+          <span class="vehicle-name"><span class="vehicle-dot" style="background:var(--gray-400)"></span>Veículo ${v.idx + 1}</span>
+          <span class="vehicle-status status-ocioso">Ocioso — não necessário</span>
+        </div>
+        <div class="vehicle-meta">
+          <span>Sem municípios atribuídos: não há entregas restantes para este veículo.</span>
+        </div>
+      `;
+      container.appendChild(card);
+      return;
+    }
 
     const statusClass =
       v.status === "aguardando" ? "status-aguardando" : v.status === "em-rota" ? "status-em-rota" : "status-concluida";
@@ -140,7 +257,7 @@ function renderFleetPanel() {
   container.querySelectorAll(".input-departure").forEach((input) => {
     input.addEventListener("change", (e) => {
       const idx = Number(e.target.dataset.idx);
-      state.veiculos[idx].departureMin = timeStrToMin(e.target.value);
+      state.rotas[idx].departureMin = timeStrToMin(e.target.value);
     });
   });
 }
@@ -149,12 +266,13 @@ function renderFleetPanel() {
 
 function renderSummaryPanel() {
   const grid = document.getElementById("summary-grid");
-  const distTotal = state.veiculos.reduce((s, v) => s + v.distKm, 0);
-  const municipiosTotal = state.veiculos.reduce((s, v) => s + v.municipiosAtendidos.length, 0);
-  const makespan = Math.max(...state.veiculos.map((v) => v.departureMin - 480 + v.tempoMin));
+  const ativos = state.rotas.filter((v) => !v.idle);
+  const distTotal = ativos.reduce((s, v) => s + v.distKm, 0);
+  const municipiosTotal = ativos.reduce((s, v) => s + v.municipiosAtendidos.length, 0);
+  const makespan = ativos.length ? Math.max(...ativos.map((v) => v.departureMin - 480 + v.tempoMin)) : 0;
 
   grid.innerHTML = `
-    <div class="stat-card"><div class="stat-value">${state.nVeiculos}</div><div class="stat-label">Veículo(s) na frota</div></div>
+    <div class="stat-card"><div class="stat-value">${ativos.length}${state.rotas.length > ativos.length ? ` (+${state.rotas.length - ativos.length} ocioso)` : ""}</div><div class="stat-label">Veículo(s) em operação</div></div>
     <div class="stat-card"><div class="stat-value">${municipiosTotal}</div><div class="stat-label">Municípios atendidos</div></div>
     <div class="stat-card"><div class="stat-value">${distTotal.toFixed(0)} km</div><div class="stat-label">Distância total da operação</div></div>
     <div class="stat-card"><div class="stat-value">${formatMin(makespan)}</div><div class="stat-label">Duração total da operação</div></div>
@@ -162,8 +280,8 @@ function renderSummaryPanel() {
 
   const compare = document.getElementById("summary-compare");
   const tempoIngenuo = state.tempoIngenuoMin;
-  const tempoSingle = state.tempoSingleVehicleMin;
-  const tempoFrotaMakespan = Math.max(...state.veiculos.map((v) => v.tempoMin));
+  const tempoSingle = calcularMakespan(1);
+  const tempoFrotaMakespan = ativos.length ? Math.max(...ativos.map((v) => v.tempoMin)) : 0;
   const maxRef = Math.max(tempoIngenuo, tempoSingle);
 
   const economiaVsIngenua = ((tempoIngenuo - tempoFrotaMakespan) / tempoIngenuo) * 100;
@@ -179,7 +297,7 @@ function renderSummaryPanel() {
     <div class="compare-title">Comparação de tempo total (menor é melhor)</div>
     ${bar("Rota ingênua", tempoIngenuo, "naive")}
     ${bar("Veículo único", tempoSingle, "single")}
-    ${bar(`Frota (${state.nVeiculos}v)`, tempoFrotaMakespan, "frota")}
+    ${bar(`Frota (${ativos.length}v)`, tempoFrotaMakespan, "frota")}
     <div style="margin-top:8px;">
       Economia da frota atual vs. rota ingênua:
       <span class="economia-pct">${economiaVsIngenua.toFixed(1)}%</span>
@@ -200,7 +318,8 @@ function resetarRelogio() {
 }
 
 function atualizarPosicoes() {
-  state.veiculos.forEach((v) => {
+  state.rotas.forEach((v) => {
+    if (v.idle) return;
     const elapsed = state.simClockMin - v.departureMin;
     let status;
     let pos;
@@ -222,7 +341,6 @@ function atualizarPosicoes() {
 }
 
 function interpolarPosicao(pontos, t) {
-  // busca binaria pelo primeiro ponto com tempo >= t
   let lo = 0;
   let hi = pontos.length - 1;
   while (lo < hi) {
@@ -263,10 +381,17 @@ function loopAnimacao(ts) {
 
 function ligarEventos() {
   document.getElementById("btn-add-vehicle").addEventListener("click", () => {
-    if (state.nVeiculos < state.maxFrota) carregarCenario(state.nVeiculos + 1);
+    if (!state.carregando) gerarCenario(state.nVeiculosSolicitados + 1);
   });
   document.getElementById("btn-remove-vehicle").addEventListener("click", () => {
-    if (state.nVeiculos > 1) carregarCenario(state.nVeiculos - 1);
+    if (!state.carregando && state.nVeiculosSolicitados > 1) gerarCenario(state.nVeiculosSolicitados - 1);
+  });
+
+  const inputFrota = document.getElementById("input-fleet-size");
+  inputFrota.addEventListener("change", (e) => {
+    const valor = parseInt(e.target.value, 10);
+    if (!state.carregando && valor >= 1) gerarCenario(valor);
+    else e.target.value = state.nVeiculosSolicitados;
   });
 
   document.getElementById("btn-play").addEventListener("click", (e) => {
@@ -291,20 +416,18 @@ function ligarEventos() {
 
 async function iniciar() {
   MapView.init();
-  const solution = await AppData.carregar();
+  await AppData.carregar();
 
   MapView.desenharCD(AppData.getMunicipio(AppData.getCdId()));
 
-  state.maxFrota = AppData.getMaxFrota();
+  state.nMunicipiosEntrega = AppData.getIndicesEntrega().length;
   const ing = AppData.getCenarioIngenuo();
   state.tempoIngenuoMin = ing.tempoMin;
   state.distIngenuoKm = ing.distKm;
-  state.tempoSingleVehicleMin = AppData.getCenario(1).rotas[0].tempoMin;
 
   ligarEventos();
-  carregarCenario(1);
+  await gerarCenario(1);
 
-  document.getElementById("map-loading").style.display = "none";
   requestAnimationFrame(loopAnimacao);
 }
 

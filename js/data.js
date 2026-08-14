@@ -1,14 +1,22 @@
 /**
- * Carregamento e normalizacao dos dados gerados pelo backend Python
- * (frontend/data/solution.json). Concentra toda a logica de "achatar" os
- * diferentes formatos vindos do backend (cenario_single_vehicle vs
- * cenarios_frota) em uma unica estrutura de cenario, mais simples de
- * consumir pela UI.
+ * Carregamento dos dados gerados pelo backend Python
+ * (frontend/data/solution.json): municipios, matriz completa de
+ * distancia/tempo real (usada pelo modulo Otimizacao para resolver
+ * TSP/VRP para QUALQUER numero de veiculos direto no navegador) e um
+ * cache pre-aquecido de geometria real de rota para os cenarios mais
+ * comuns (1 a 12 veiculos). Para trechos fora desse cache, a geometria e
+ * buscada ao vivo na API publica do OSRM (que permite chamada direta do
+ * navegador via CORS), com fallback para linha reta caso a rede falhe.
  */
 
 const AppData = (() => {
+  const OSRM_BASE_URL = "https://router.project-osrm.org";
+  const FATOR_SINUOSIDADE = 1.3;
+  const VELOCIDADE_MEDIA_KMH = 60.0;
+
   let solution = null;
   let municipiosPorId = null;
+  const arestasEmMemoria = {}; // cache adicional para trechos buscados ao vivo nesta sessao
 
   async function carregar() {
     const resp = await fetch("data/solution.json");
@@ -23,6 +31,10 @@ const AppData = (() => {
     return municipiosPorId[id];
   }
 
+  function getMunicipiosPorId() {
+    return municipiosPorId;
+  }
+
   function getCdId() {
     return solution.meta.cd_id;
   }
@@ -31,67 +43,139 @@ const AppData = (() => {
     return solution.meta;
   }
 
-  /** Retorna a geometria (lista [lat,lon]) do trecho i->j. */
-  function getAresta(i, j) {
-    const aresta = solution.arestas[`${i}-${j}`];
-    if (!aresta) {
-      console.warn(`Aresta ${i}-${j} nao encontrada; usando linha reta.`);
-      const a = getMunicipio(i);
-      const b = getMunicipio(j);
-      return { geometria: [[a.lat, a.lon], [b.lat, b.lon]], dist_km: 0, tempo_min: 0, fonte: "indisponivel" };
-    }
-    return aresta;
+  function getIndicesEntrega() {
+    return solution.municipios.filter((m) => m.papel === "entrega").map((m) => m.id);
   }
 
-  /** Numero maximo de veiculos com cenario VRP pre-computado. */
-  function getMaxFrota() {
-    const chaves = Object.keys(solution.cenarios_frota).map(Number);
-    return Math.max(1, ...chaves);
+  function getMatrizDist() {
+    return solution.matrizes.dist_km;
+  }
+
+  function getMatrizTempo() {
+    return solution.matrizes.tempo_min;
+  }
+
+  function haversineKm(lat1, lon1, lat2, lon2) {
+    const R = 6371.0088;
+    const toRad = (d) => (d * Math.PI) / 180;
+    const dphi = toRad(lat2 - lat1);
+    const dlmb = toRad(lon2 - lon1);
+    const a =
+      Math.sin(dphi / 2) ** 2 +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dlmb / 2) ** 2;
+    return 2 * R * Math.asin(Math.sqrt(a));
+  }
+
+  function distanciaPontoSegmento(p, a, b) {
+    const [px, py] = p, [ax, ay] = a, [bx, by] = b;
+    const dx = bx - ax, dy = by - ay;
+    if (dx === 0 && dy === 0) return Math.hypot(px - ax, py - ay);
+    let t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy);
+    t = Math.max(0, Math.min(1, t));
+    return Math.hypot(px - (ax + t * dx), py - (ay + t * dy));
+  }
+
+  /** Simplificacao Ramer-Douglas-Peucker (mesma logica de backend/routing.py). */
+  function simplificarGeometria(pontos, toleranciaGraus = 0.0008) {
+    if (pontos.length <= 2) return pontos;
+    const manter = new Array(pontos.length).fill(false);
+    manter[0] = manter[pontos.length - 1] = true;
+    const pilha = [[0, pontos.length - 1]];
+
+    while (pilha.length) {
+      const [ini, fim] = pilha.pop();
+      if (fim - ini < 2) continue;
+      const a = pontos[ini], b = pontos[fim];
+      let maxDist = -1, idxMax = -1;
+      for (let i = ini + 1; i < fim; i++) {
+        const d = distanciaPontoSegmento(pontos[i], a, b);
+        if (d > maxDist) { maxDist = d; idxMax = i; }
+      }
+      if (maxDist > toleranciaGraus) {
+        manter[idxMax] = true;
+        pilha.push([ini, idxMax]);
+        pilha.push([idxMax, fim]);
+      }
+    }
+    return pontos.filter((_, i) => manter[i]);
+  }
+
+  function linhaRetaFallback(origem, destino) {
+    const d = haversineKm(origem.lat, origem.lon, destino.lat, destino.lon) * FATOR_SINUOSIDADE;
+    return {
+      geometria: [[origem.lat, origem.lon], [destino.lat, destino.lon]],
+      dist_km: d,
+      tempo_min: (d / VELOCIDADE_MEDIA_KMH) * 60,
+      fonte: "haversine_fallback_cliente",
+    };
+  }
+
+  const TIMEOUT_OSRM_MS = 7000;
+
+  /** Busca ao vivo, no OSRM, a geometria real de um trecho nao pre-cacheado. */
+  async function buscarGeometriaAoVivo(i, j) {
+    const origem = getMunicipio(i);
+    const destino = getMunicipio(j);
+    const url = `${OSRM_BASE_URL}/route/v1/driving/${origem.lon},${origem.lat};${destino.lon},${destino.lat}?overview=full&geometries=geojson`;
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_OSRM_MS);
+      const resp = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      if (data.code !== "Ok") throw new Error(data.message || "erro OSRM");
+      const rota = data.routes[0];
+      const geometriaBruta = rota.geometry.coordinates.map(([lon, lat]) => [lat, lon]);
+      const geometria = simplificarGeometria(geometriaBruta).map(([lat, lon]) => [
+        Math.round(lat * 1e5) / 1e5,
+        Math.round(lon * 1e5) / 1e5,
+      ]);
+      return {
+        geometria,
+        dist_km: rota.distance / 1000,
+        tempo_min: rota.duration / 60,
+        fonte: "osrm_route_cliente",
+      };
+    } catch (err) {
+      console.warn(`[AppData] Falha ao buscar rota ${i}->${j} ao vivo no OSRM (${err.message}). Usando linha reta.`);
+      return linhaRetaFallback(origem, destino);
+    }
+  }
+
+  /** Retorna a geometria (sincrona) do trecho i->j, assumindo que ja foi garantida por garantirArestas(). */
+  function getAresta(i, j) {
+    const chave = `${i}-${j}`;
+    if (arestasEmMemoria[chave]) return arestasEmMemoria[chave];
+    if (solution.arestas[chave]) return solution.arestas[chave];
+    // fallback de seguranca (nao deveria ocorrer se garantirArestas foi chamado antes)
+    return linhaRetaFallback(getMunicipio(i), getMunicipio(j));
   }
 
   /**
-   * Retorna um cenario normalizado para n veiculos:
-   * { nVeiculos, rotas: [{ veiculo, tourIds, tourNomes, municipiosAtendidos, distKm, tempoMin }] }
+   * Garante que a geometria de todos os pares (i,j) da lista esteja
+   * disponivel (no cache pre-aquecido ou buscada ao vivo), buscando em
+   * paralelo apenas os trechos que ainda faltam. onProgress(feitos, total)
+   * e chamado a cada trecho resolvido, para a UI informar o andamento em
+   * frotas grandes que exigem muitas buscas ao vivo no OSRM.
    */
-  function getCenario(nVeiculos) {
-    if (nVeiculos <= 1) {
-      const c = solution.cenario_single_vehicle;
-      return {
-        nVeiculos: 1,
-        rotas: [
-          {
-            veiculo: 0,
-            tourIds: c.tour_ids,
-            tourNomes: c.tour_nomes,
-            municipiosAtendidos: c.tour_nomes.slice(1, -1),
-            distKm: c.dist_km,
-            tempoMin: c.tempo_min,
-          },
-        ],
-      };
-    }
-    const c = solution.cenarios_frota[String(nVeiculos)];
-    return {
-      nVeiculos: c.n_veiculos,
-      rotas: c.rotas.map((r) => ({
-        veiculo: r.veiculo,
-        tourIds: r.tour_ids,
-        tourNomes: r.tour_nomes,
-        municipiosAtendidos: r.municipios_atendidos,
-        distKm: r.dist_km,
-        tempoMin: r.tempo_min,
-      })),
-    };
-  }
+  async function garantirArestas(pares, onProgress) {
+    const faltantes = pares.filter(([i, j]) => {
+      const chave = `${i}-${j}`;
+      return !solution.arestas[chave] && !arestasEmMemoria[chave];
+    });
+    if (faltantes.length === 0) return;
 
-  function getCenarioIngenuo() {
-    const c = solution.cenario_ingenuo;
-    return {
-      tourIds: c.tour_ids,
-      tourNomes: c.tour_nomes,
-      distKm: c.dist_km,
-      tempoMin: c.tempo_min,
-    };
+    let feitos = 0;
+    await Promise.all(
+      faltantes.map(async ([i, j]) => {
+        const chave = `${i}-${j}`;
+        arestasEmMemoria[chave] = await buscarGeometriaAoVivo(i, j);
+        feitos++;
+        if (onProgress) onProgress(feitos, faltantes.length);
+      })
+    );
   }
 
   /**
@@ -99,6 +183,9 @@ const AppData = (() => {
    * tour (lista de ids de municipio incluindo CD nas pontas), concatenando
    * a geometria real de cada trecho e distribuindo o tempo de cada trecho
    * proporcionalmente à distância percorrida dentro dele.
+   *
+   * Pre-requisito: garantirArestas() deve ter sido chamado para todos os
+   * pares consecutivos do tour antes de montarTrilha.
    *
    * Retorna:
    *   pontos: [{ lat, lon, t }]  t = minutos acumulados desde a saida do CD
@@ -114,6 +201,7 @@ const AppData = (() => {
     for (let k = 0; k < tourIds.length - 1; k++) {
       const i = tourIds[k];
       const j = tourIds[k + 1];
+      if (i === j) continue; // veiculo ocioso (tour [CD, CD])
       const aresta = getAresta(i, j);
       const geo = aresta.geometria;
 
@@ -135,28 +223,39 @@ const AppData = (() => {
       paradas.push({ id: j, nome: getMunicipio(j).nome, t: cumTempo });
     }
 
+    if (pontos.length === 0) {
+      const cd = getMunicipio(tourIds[0]);
+      pontos.push({ lat: cd.lat, lon: cd.lon, t: 0 });
+    }
+
     return { pontos, paradas, tempoTotalMin: cumTempo, distTotalKm: cumDist };
   }
 
-  function haversineKm(lat1, lon1, lat2, lon2) {
-    const R = 6371.0088;
-    const toRad = (d) => (d * Math.PI) / 180;
-    const dphi = toRad(lat2 - lat1);
-    const dlmb = toRad(lon2 - lon1);
-    const a =
-      Math.sin(dphi / 2) ** 2 +
-      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dlmb / 2) ** 2;
-    return 2 * R * Math.asin(Math.sqrt(a));
+  /** Rota "ingenua": visita os municipios de entrega na ordem em que aparecem no dataset, sem otimizacao. */
+  function getCenarioIngenuo() {
+    const cdIdx = getCdId();
+    const indicesEntrega = getIndicesEntrega();
+    const tourIds = [cdIdx, ...indicesEntrega, cdIdx];
+    const matrizDist = getMatrizDist();
+    const matrizTempo = getMatrizTempo();
+    return {
+      tourIds,
+      distKm: Otimizacao.custoTotal(tourIds, matrizDist),
+      tempoMin: Otimizacao.custoTotal(tourIds, matrizTempo),
+    };
   }
 
   return {
     carregar,
     getMunicipio,
+    getMunicipiosPorId,
     getCdId,
     getMeta,
+    getIndicesEntrega,
+    getMatrizDist,
+    getMatrizTempo,
     getAresta,
-    getMaxFrota,
-    getCenario,
+    garantirArestas,
     getCenarioIngenuo,
     montarTrilha,
   };

@@ -83,6 +83,29 @@ body {
 
 .fleet-size { font-weight: 600; min-width: 78px; text-align: center; }
 
+.fleet-size-input {
+  width: 52px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.35);
+  background: rgba(255,255,255,0.08);
+  color: var(--white);
+  padding: 4px 2px;
+}
+.fleet-size-input::-webkit-inner-spin-button { opacity: 0.6; }
+.fleet-size-suffix { color: #c7d6e6; font-size: 12.5px; margin-right: 2px; }
+
+.fleet-banner {
+  padding: 9px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+.fleet-banner.banner-idle { background: #fef3c7; color: #92400e; border-bottom: 1px solid #fcd34d; }
+.fleet-banner.banner-no-gain { background: #e0edff; color: #1e3a5f; border-bottom: 1px solid #bcd6f7; }
+
 .naive-toggle {
   display: flex; align-items: center; gap: 6px;
   color: #dce6f0; font-size: 12.5px;
@@ -223,6 +246,12 @@ body {
 .status-aguardando { background: #fef3c7; color: #92400e; }
 .status-em-rota { background: #dbeafe; color: #1e40af; }
 .status-concluida { background: #dcfce7; color: #166534; }
+.status-ocioso { background: var(--gray-100); color: var(--gray-600); }
+
+.vehicle-card.idle {
+  border-left-style: dashed;
+  opacity: 0.7;
+}
 
 .vehicle-meta { font-size: 11.5px; color: var(--gray-600); display: flex; gap: 14px; margin-bottom: 6px; flex-wrap: wrap; }
 .vehicle-meta b { color: var(--gray-800); }

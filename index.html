@@ -22,7 +22,8 @@
   <div class="scenario-controls">
     <span class="label">Frota:</span>
     <button id="btn-remove-vehicle" class="btn-icon" title="Remover veículo">−</button>
-    <span id="fleet-size-display" class="fleet-size">1 veículo</span>
+    <input type="number" id="input-fleet-size" class="fleet-size-input" min="1" value="1" title="Número de veículos (qualquer quantidade)" />
+    <span id="fleet-size-suffix" class="fleet-size-suffix">veículo</span>
     <button id="btn-add-vehicle" class="btn-icon" title="Adicionar veículo">+</button>
 
     <label class="naive-toggle">
@@ -50,6 +51,8 @@
   </div>
 </header>
 
+<div id="fleet-banner" class="fleet-banner" hidden></div>
+
 <main class="layout">
   <section class="map-wrap">
     <div id="map"></div>
@@ -76,6 +79,7 @@
 </footer>
 
 <script src="vendor/leaflet/leaflet.js"></script>
+<script src="js/otimizacao.js"></script>
 <script src="js/data.js"></script>
 <script src="js/map.js"></script>
 <script src="js/main.js"></script>
