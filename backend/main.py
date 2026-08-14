@@ -4,14 +4,17 @@ Orquestrador principal do backend de otimizacao de rotas.
 Pipeline:
   1. Carrega os municipios selecionados (CD + 24 municipios de entrega).
   2. Constroi o grafo completo de distancias/tempos reais (NetworkX + OSRM).
-  3. Calcula a rota "ingenua" (ordem arbitraria, sem otimizacao) como linha
-     de base para comparacao.
-  4. Resolve o TSP para veiculo unico (vizinho mais proximo + 2-opt).
-  5. Resolve o VRP para frotas de 2 a 5 veiculos (varredura angular + TSP
-     por veiculo).
-  6. Busca a geometria real (poligono seguindo a rodovia) de cada trecho
-     efetivamente utilizado em algum dos cenarios acima.
-  7. Salva tudo em frontend/data/solution.json, consumido pelo frontend.
+  3. Roda os algoritmos de TSP (veiculo unico) e VRP (varredura angular) para
+     uma faixa de tamanhos de frota (1 a MAX_FROTA_PRE_AQUECIDA), apenas para
+     validar os resultados no console e "pre-aquecer" o cache de geometria
+     real de rota do OSRM para os cenarios mais comuns.
+  4. Salva em frontend/data/solution.json: os municipios, a matriz completa
+     de distancia/tempo real entre todos os pares (usada pelo frontend para
+     rodar o MESMO algoritmo de TSP/VRP, em JavaScript, para QUALQUER
+     tamanho de frota que o usuario escolher na interface) e o cache de
+     geometria de rota pre-aquecido (o frontend busca ao vivo no OSRM a
+     geometria de trechos que nao estejam nesse cache, ja que a API publica
+     do OSRM permite chamadas diretas do navegador via CORS).
 
 Execute com: python3 main.py  (a partir da pasta backend/)
 """
@@ -28,7 +31,7 @@ from routing import obter_geometrias_em_lote  # noqa: E402
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
 FRONTEND_DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "frontend", "data")
-FROTAS_A_CALCULAR = [2, 3, 4, 5]
+MAX_FROTA_PRE_AQUECIDA = 12  # frotas de 1 a 12 veiculos tem a geometria pre-cacheada
 
 
 def carregar_municipios():
@@ -39,19 +42,10 @@ def carregar_municipios():
 def rota_ingenua(indices_entrega, cd_idx, matriz_dist, matriz_tempo):
     """Rota sem otimizacao: visita os municipios na ordem em que aparecem
     no dataset (ordem de populacao), simulando o planejamento manual de um
-    despachante sem apoio algoritmico."""
+    despachante sem apoio algoritmico. Usada so para validacao no console."""
     tour = [cd_idx] + list(indices_entrega) + [cd_idx]
     return {
         "tour": tour,
-        "dist_km": custo_total(tour, matriz_dist),
-        "tempo_min": custo_total(tour, matriz_tempo),
-    }
-
-
-def montar_rota_serializavel(tour, municipios_por_id, matriz_dist, matriz_tempo):
-    return {
-        "tour_ids": tour,
-        "tour_nomes": [municipios_por_id[i]["nome"] for i in tour],
         "dist_km": custo_total(tour, matriz_dist),
         "tempo_min": custo_total(tour, matriz_tempo),
     }
@@ -76,55 +70,24 @@ def main():
     grafo, matriz_dist, matriz_tempo, fonte_matriz = construir_grafo(municipios)
     print(f"Grafo construido: {resumo_grafo(grafo)} | fonte da matriz: {fonte_matriz}")
 
-    # --- cenario ingenuo (linha de base) ---
+    # --- validacao no console + coleta de trechos para pre-aquecer o cache ---
     ingenua = rota_ingenua(indices_entrega, cd_idx, matriz_dist, matriz_tempo)
-    print(f"Rota ingenua: {ingenua['dist_km']:.1f} km / {ingenua['tempo_min']:.1f} min")
+    print(f"[validacao] Rota ingenua: {ingenua['dist_km']:.1f} km / {ingenua['tempo_min']:.1f} min")
 
-    # --- TSP veiculo unico ---
-    resultado_tsp = resolver_tsp(indices_entrega, cd_idx, matriz_tempo)
-    tour_single = resultado_tsp["tour"]
-    rota_single = montar_rota_serializavel(tour_single, municipios_por_id, matriz_dist, matriz_tempo)
-    print(
-        f"TSP single-vehicle: {rota_single['dist_km']:.1f} km / {rota_single['tempo_min']:.1f} min "
-        f"(ganho 2-opt sobre NN: {resultado_tsp['ganho_2opt_pct']:.1f}%)"
-    )
+    todos_tours_para_arestas = [ingenua["tour"]]
 
-    todos_tours_para_arestas = [ingenua["tour"], tour_single]
-
-    # --- VRP para cada tamanho de frota ---
-    cenarios_frota = {}
-    for k in FROTAS_A_CALCULAR:
+    max_util = min(MAX_FROTA_PRE_AQUECIDA, len(indices_entrega))
+    for k in range(1, max_util + 1):
         rotas = resolver_vrp(indices_entrega, cd_idx, municipios_por_id, matriz_dist, matriz_tempo, k)
-        comparacao = comparar_single_vs_frota(rota_single, rotas)
-
-        rotas_serializadas = []
+        makespan = max(r["tempo_min"] for r in rotas)
+        dist_total = sum(r["dist_km"] for r in rotas)
+        print(f"[validacao] k={k}: makespan={makespan:.1f} min, dist_total_frota={dist_total:.1f} km")
         for r in rotas:
-            rotas_serializadas.append(
-                {
-                    "veiculo": r["veiculo"],
-                    "tour_ids": r["tour"],
-                    "tour_nomes": [municipios_por_id[i]["nome"] for i in r["tour"]],
-                    "municipios_atendidos": r["municipios_atendidos"],
-                    "dist_km": r["dist_km"],
-                    "tempo_min": r["tempo_min"],
-                }
-            )
             todos_tours_para_arestas.append(r["tour"])
 
-        cenarios_frota[str(k)] = {
-            "n_veiculos": k,
-            "rotas": rotas_serializadas,
-            "comparacao": comparacao,
-        }
-        print(
-            f"VRP k={k}: makespan={comparacao['makespan_frota_min']:.1f} min "
-            f"(ganho de {comparacao['ganho_makespan_pct']:.1f}% vs veiculo unico), "
-            f"dist_total_frota={comparacao['dist_total_frota_km']:.1f} km"
-        )
-
-    # --- geometria real de todos os trechos utilizados em algum cenario ---
+    # --- geometria real de todos os trechos utilizados nos cenarios de validacao ---
     arestas_unicas = coletar_arestas(todos_tours_para_arestas)
-    print(f"Buscando geometria real de {len(arestas_unicas)} trechos unicos via OSRM...")
+    print(f"Buscando geometria real de {len(arestas_unicas)} trechos unicos via OSRM (pre-aquecimento do cache)...")
     geometrias = obter_geometrias_em_lote(sorted(arestas_unicas), municipios_por_id)
 
     arestas_serializadas = {
@@ -146,20 +109,13 @@ def main():
             "n_municipios_entrega": len(indices_entrega),
             "fonte_matriz_distancias": fonte_matriz,
             "fontes_geometria_utilizadas": sorted(fontes_geometria),
+            "frota_pre_aquecida_ate": max_util,
         },
         "municipios": municipios,
-        "cenario_ingenuo": {
-            "tour_ids": ingenua["tour"],
-            "tour_nomes": [municipios_por_id[i]["nome"] for i in ingenua["tour"]],
-            "dist_km": ingenua["dist_km"],
-            "tempo_min": ingenua["tempo_min"],
+        "matrizes": {
+            "dist_km": matriz_dist,
+            "tempo_min": matriz_tempo,
         },
-        "cenario_single_vehicle": {
-            **rota_single,
-            "ganho_2opt_sobre_nn_pct": resultado_tsp["ganho_2opt_pct"],
-            "economia_vs_ingenua_pct": (ingenua["tempo_min"] - rota_single["tempo_min"]) / ingenua["tempo_min"] * 100,
-        },
-        "cenarios_frota": cenarios_frota,
         "arestas": arestas_serializadas,
     }
 

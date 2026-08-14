@@ -23,11 +23,18 @@ construtiva (vizinho mais próximo) seguida de refinamento por busca local
 geográfico (varredura angular) seguida da mesma heurística de TSP em cada
 sub-rota. Os resultados mostram uma redução de tempo total de operação de
 até **65,9%** apenas com a otimização de rota de um único veículo em
-relação a uma rota sem otimização, e ganhos adicionais de até **60,4%** no
+relação a uma rota sem otimização, e ganhos adicionais de até **63,3%** no
 tempo de conclusão da operação (*makespan*) ao distribuir as entregas entre
-uma frota de veículos. Uma aplicação web interativa, com mapa real,
-animação da frota conforme horários de saída configuráveis e painéis de
-gestão/resumo, foi desenvolvida como principal entregável do projeto.
+uma frota de veículos (economia total de até **87,5%** em relação à rota
+ingênua, com 12 veículos). O número de veículos é **livremente
+customizável** na aplicação web — o algoritmo de VRP roda ao vivo no
+próprio navegador — e o sistema **sinaliza automaticamente** tanto quando a
+frota configurada excede o número de municípios de entrega (veículos
+ociosos, sem rota atribuída) quanto quando um veículo adicional deixa de
+reduzir o tempo total da operação (retorno decrescente). Uma aplicação web
+interativa, com mapa real, animação da frota conforme horários de saída
+configuráveis e painéis de gestão/resumo, foi desenvolvida como principal
+entregável do projeto.
 
 ---
 
@@ -285,56 +292,72 @@ distintas e ambas são reportadas (`backend/vrp.py`):
 
 ## 6. Arquitetura da aplicação web
 
-A aplicação é dividida em duas camadas desacopladas, comunicando-se por um
-único artefato de dados estático (`frontend/data/solution.json`), decisão
-de escopo que evita a necessidade de manter um servidor backend em produção
-para este entregável acadêmico:
+A aplicação é dividida em duas camadas, comunicando-se por um único
+artefato de dados estático (`frontend/data/solution.json`): o backend
+Python calcula, uma única vez, os dados geográficos que dependem de fontes
+externas (coordenadas, população, matriz de distância/tempo real via OSRM);
+o **algoritmo de otimização (TSP + VRP) roda no próprio navegador**, em
+JavaScript, permitindo que o usuário escolha **qualquer número de
+veículos** na interface sem depender de cenários fixos pré-computados:
 
 ```
-backend/ (Python)                       frontend/ (HTML/CSS/JS + Leaflet)
-─────────────────────                   ──────────────────────────────────
-selecao_municipios.py  ─┐
-routing.py (OSRM)       ├─► main.py ──► frontend/data/solution.json ──► index.html
-graph_builder.py        │                                              js/data.js  (carga e normalização)
-tsp.py                  │                                              js/map.js   (Leaflet: rotas, marcadores, carros)
-vrp.py                 ─┘                                              js/main.js  (estado, relógio simulado, painéis)
+backend/ (Python)                              frontend/ (HTML/CSS/JS + Leaflet)
+─────────────────────                          ──────────────────────────────────
+selecao_municipios.py  ─┐                      js/otimizacao.js  (TSP + VRP em JS - roda no navegador)
+routing.py (OSRM)       ├─► main.py ──► solution.json ──► js/data.js  (carga, matriz, geometria sob demanda)
+graph_builder.py        │   (matriz completa +           js/map.js   (Leaflet: rotas, marcadores, carros)
+tsp.py / vrp.py        ─┘    cache de geometria)          js/main.js  (estado, relógio simulado, painéis)
 ```
 
 ### 6.1 Backend (Python)
 
-Executado uma única vez (offline) para gerar `solution.json` com todos os
-cenários pré-computados: a rota "ingênua" (linha de base sem otimização,
-visitando os municípios na ordem do dataset), a rota de veículo único
-(TSP) e as rotas de frota para `k = 2, 3, 4, 5` veículos (VRP), incluindo,
-para cada trecho realmente utilizado em algum desses cenários, a geometria
-real da rodovia.
+Executado uma única vez (offline) para gerar `solution.json` contendo: os
+25 municípios selecionados; a **matriz completa 25×25** de distância e
+tempo real entre todos os pares (via OSRM `/table`); e um **cache
+pré-aquecido** da geometria real de rota (via OSRM `/route`) para todos os
+trechos utilizados nos cenários de 1 a 12 veículos — usado para validar os
+algoritmos no console (seção 7) e para que os tamanhos de frota mais
+comuns carreguem instantaneamente no navegador, sem round-trips de rede.
 
 ### 6.2 Frontend (HTML/CSS/JS + Leaflet)
 
 Aplicação de página única, sem processo de build (JavaScript vanilla,
-compatível com qualquer navegador moderno), estruturada em três módulos:
+compatível com qualquer navegador moderno), estruturada em quatro módulos:
 
-- **`js/data.js`**: carrega `solution.json` e normaliza os diferentes
-  formatos de cenário (veículo único vs. frota) em uma estrutura comum;
-  monta, para cada rota, a "trilha" completa (polilinha real + marcação
-  temporal), concatenando a geometria de cada trecho e distribuindo o
-  tempo de viagem de cada trecho proporcionalmente à distância percorrida
-  dentro dele (aproximação de velocidade constante por trecho, uma vez que
-  o OSRM não fornece telemetria de velocidade ponto-a-ponto na resposta
-  agregada usada).
+- **`js/otimizacao.js`**: porte para JavaScript dos mesmos algoritmos do
+  backend (vizinho mais próximo + 2-opt para o TSP; varredura angular +
+  TSP por veículo para o VRP), operando sobre a matriz de tempo/distância
+  embutida em `solution.json`. É o que permite resolver o problema para
+  **qualquer número de veículos** diretamente no navegador, sem precisar
+  de um backend em produção.
+- **`js/data.js`**: carrega `solution.json`; monta, para cada rota, a
+  "trilha" completa (polilinha real + marcação temporal), concatenando a
+  geometria de cada trecho e distribuindo o tempo de viagem proporcionalmente
+  à distância percorrida dentro dele (aproximação de velocidade constante
+  por trecho, já que o OSRM não fornece telemetria ponto-a-ponto na
+  resposta agregada usada); e **busca ao vivo, diretamente no navegador**,
+  a geometria de qualquer trecho que a frota escolhida precise e que não
+  esteja no cache pré-aquecido — a instância pública do OSRM permite
+  chamadas diretas do navegador via CORS (`Access-Control-Allow-Origin: *`,
+  verificado empiricamente), com timeout de 7s e *fallback* automático por
+  linha reta (Haversine) caso a chamada falhe ou demore demais, mantendo a
+  aplicação responsiva mesmo em redes restritivas.
 - **`js/map.js`**: encapsula toda a interação com a biblioteca **Leaflet**
   — mapa base OpenStreetMap, marcador do Centro de Distribuição, polilinhas
   coloridas por veículo seguindo a geometria real, marcadores de parada
   numerados e ícones de caminhão (🚚) que representam a posição atual de
   cada veículo.
 - **`js/main.js`**: mantém o estado da aplicação (frota ativa, horários de
-  saída, relógio de simulação) e implementa o **relógio simulado**: um
-  laço de animação (`requestAnimationFrame`) avança um contador de minutos
-  simulados a uma velocidade ajustável (1×, 5×, 20× ou 60× — minutos
-  simulados por segundo real); a cada quadro, a posição de cada veículo é
-  interpolada ao longo de sua trilha em função do tempo decorrido desde seu
-  horário de saída configurado, e seu status (*aguardando saída* / *em
-  rota* / *entrega concluída*) é atualizado de acordo.
+  saída, relógio de simulação), orquestra a chamada ao `js/otimizacao.js`
+  sempre que o usuário muda o tamanho da frota, calcula os indicadores de
+  frota excessiva/sem ganho (seção 6.3), e implementa o **relógio
+  simulado**: um laço de animação (`requestAnimationFrame`) avança um
+  contador de minutos simulados a uma velocidade ajustável (1×, 5×, 20× ou
+  60× — minutos simulados por segundo real); a cada quadro, a posição de
+  cada veículo é interpolada ao longo de sua trilha em função do tempo
+  decorrido desde seu horário de saída configurado, e seu status
+  (*aguardando saída* / *em rota* / *entrega concluída*) é atualizado de
+  acordo.
 
 A biblioteca Leaflet é **vendorizada localmente** no repositório
 (`frontend/vendor/leaflet/`) em vez de referenciada por CDN, garantindo que
@@ -344,11 +367,24 @@ mapa do OpenStreetMap, esses sim, continua exigindo acesso à internet).
 
 ### 6.3 Interface e gestão da frota
 
-- **Adicionar/remover veículos**: como as rotas VRP são pré-computadas para
-  frotas de 1 a 5 veículos (decisão de escopo — ver seção 8), os botões "+"
-  e "−" no topo da aplicação alternam entre esses cenários pré-computados,
-  reparticionando visualmente os municípios entre o novo número de
-  veículos.
+- **Número de veículos totalmente customizável**: um campo numérico (e os
+  botões "+"/"−") no topo da aplicação permite escolher **qualquer
+  quantidade** de veículos; a cada mudança, o VRP é recalculado ao vivo no
+  navegador (seção 6.2) e as rotas são redesenhadas no mapa.
+- **Indicador de veículos ociosos**: como não há benefício em ter mais
+  veículos do que municípios de entrega (24, neste estudo), se o usuário
+  configurar mais veículos que isso, o excedente fica visivelmente marcado
+  como *ocioso* (parado no CD, sem rota atribuída) e um aviso explica que
+  não há necessidade operacional desses veículos extras.
+- **Indicador de "sem ganho"**: mesmo dentro do limite de 24, adicionar um
+  veículo pode não reduzir o tempo total da operação (*makespan*) em
+  relação a um veículo a menos — fenômeno real do VRP com varredura
+  angular, discutido na seção 7 (ex.: k=6 e k=7, ou k=9, 10 e 11, empatam
+  no makespan neste estudo de caso). Quando isso ocorre, a aplicação exibe
+  um aviso comparando o tempo antes/depois e informando que a frota atual
+  já é suficiente — atendendo diretamente ao requisito de o sistema
+  **indicar quando mais veículos não são necessários** para a rota
+  existente.
 - **Horário de saída por veículo**: cada veículo tem um campo de horário
   editável (padrão: 08:00, 09:30, 11:00, ... com 90 minutos de espaçamento),
   e sua animação no mapa só começa a partir desse horário no relógio
@@ -380,7 +416,14 @@ distância/tempo/geometria obtidos ao vivo da API do OSRM (fonte:
 | Frota de 2 veículos (VRP)       | 1.825,4 km (soma) | 18h27min | 75,0% |
 | Frota de 3 veículos (VRP)       | 1.930,7 km (soma) | 12h42min | 82,8% |
 | Frota de 4 veículos (VRP)       | 2.441,2 km (soma) | 13h29min | 81,7% |
-| Frota de 5 veículos (VRP)       | 2.334,1 km (soma) | 9h57min  | **86,5%** |
+| Frota de 5 veículos (VRP)       | 2.334,1 km (soma) | 9h57min  | 86,5% |
+| Frota de 6 veículos (VRP)       | 2.816,9 km (soma) | 10h52min | 85,2% |
+| Frota de 7 veículos (VRP)       | 3.204,7 km (soma) | 10h52min | 85,2% *(empate com k=6)* |
+| Frota de 8 veículos (VRP)       | 3.424,7 km (soma) | 9h18min  | 87,4% |
+| Frota de 9 veículos (VRP)       | 3.592,7 km (soma) | 9h18min  | 87,4% *(empate com k=8)* |
+| Frota de 10 veículos (VRP)      | 3.949,8 km (soma) | 9h18min  | 87,4% *(empate com k=8)* |
+| Frota de 11 veículos (VRP)      | 4.118,6 km (soma) | 9h18min  | 87,4% *(empate com k=8)* |
+| Frota de 12 veículos (VRP)      | 4.216,4 km (soma) | 9h13min  | **87,5%** |
 
 Observações relevantes:
 
@@ -403,6 +446,15 @@ Observações relevantes:
   mantido no relatório (em vez de ocultado) por ilustrar de forma concreta
   uma limitação real de heurísticas de particionamento simples, discutida
   em mais detalhe na seção 8.
+- **Retornos decrescentes (diminishing returns):** a partir de certo ponto,
+  veículos adicionais deixam de reduzir o makespan (k=6/k=7 empatam em
+  10h52min; k=8, 9, 10 e 11 empatam em 9h18min). Isso ocorre porque, na
+  varredura angular, adicionar um veículo apenas subdivide um grupo já
+  existente — se o subgrupo mais lento não for o afetado pela nova divisão,
+  o tempo total da operação (definido pelo veículo mais lento) não muda.
+  É exatamente essa situação que a aplicação web detecta e sinaliza ao
+  usuário (seção 6.3): adicionar mais um veículo além do ponto de retorno
+  decrescente não traz benefício operacional.
 
 ---
 
@@ -444,13 +496,25 @@ Observações relevantes:
    à distância percorrida), já que a API de tabela do OSRM não fornece
    telemetria de velocidade ponto a ponto — uma simplificação visualmente
    adequada, mas não uma simulação de tráfego real.
-7. **Cenários de frota pré-computados no frontend.** Por decisão de
-   arquitetura (aplicação estática, sem backend em produção), o frontend
-   permite escolher entre frotas de 1 a 5 veículos previamente resolvidas
-   pelo backend, em vez de invocar o algoritmo de VRP sob demanda no
-   navegador para um número arbitrário de veículos. Essa é uma limitação de
-   escopo, não do método: o mesmo pipeline Python resolveria o VRP para
-   qualquer tamanho de frota caso fosse exposto por uma API viva.
+7. **Dependência de CORS do OSRM para frotas grandes no navegador.** Como o
+   VRP roda ao vivo no frontend (seção 6.2), tamanhos de frota fora do
+   cache pré-aquecido (1 a 12 veículos) exigem buscar a geometria de novos
+   trechos diretamente do navegador para a API pública do OSRM. Isso
+   funciona porque essa instância permite chamadas *cross-origin*
+   (verificado empiricamente), mas é um comportamento de terceiros que pode
+   mudar; o *fallback* por linha reta (limitação 4) garante que a aplicação
+   nunca trave, apenas perca fidelidade visual da geometria nesse caso.
+   Além disso, navegadores limitam conexões simultâneas por domínio, então
+   frotas muito grandes (muitos trechos não cacheados) podem levar alguns
+   segundos a mais para carregar.
+8. **Limite de veículos úteis.** Como cada veículo precisa de ao menos um
+   município para ter sentido operacional, o número de veículos
+   "produtivos" está limitado ao número de municípios de entrega (24). A
+   aplicação permite configurar frotas maiores livremente, mas sinaliza o
+   excedente como ocioso (seção 6.3) em vez de impedir a escolha — uma
+   decisão deliberada de deixar o usuário explorar o comportamento do
+   sistema além do ponto útil, em vez de restringir artificialmente a
+   interface.
 
 ---
 
@@ -509,7 +573,7 @@ projeto):
 | `backend/graph_builder.py` | Construção do grafo `networkx.DiGraph` a partir da matriz de distância/tempo |
 | `backend/tsp.py` | Heurística de TSP: vizinho mais próximo + refinamento 2-opt |
 | `backend/vrp.py` | Heurística de VRP: varredura angular (particionamento) + TSP por veículo; métricas de comparação frota vs. veículo único |
-| `backend/main.py` | Orquestrador: executa todo o pipeline e gera `frontend/data/solution.json` |
+| `backend/main.py` | Orquestrador: gera `solution.json` com municípios, matriz completa 25×25 de distância/tempo e cache de geometria pré-aquecido (frotas de 1 a 12), além de validar os algoritmos no console |
 
 Trechos centrais dos dois algoritmos de otimização, para referência direta
 neste documento:
@@ -577,12 +641,44 @@ uma aplicação de página única sem processo de build:
 |---|---|
 | `frontend/index.html` | Estrutura da página: barra superior (controles de frota/relógio), mapa, painéis laterais |
 | `frontend/css/style.css` | Estilo visual (paleta de logística: azul-marinho, azul, verde, cinza) |
-| `frontend/js/data.js` | Carregamento e normalização de `solution.json`; montagem da trilha temporal de cada rota |
+| `frontend/js/otimizacao.js` | TSP (NN + 2-opt) e VRP (varredura angular) em JavaScript — roda no navegador para qualquer nº de veículos |
+| `frontend/js/data.js` | Carregamento de `solution.json`; montagem da trilha temporal de cada rota; busca ao vivo de geometria no OSRM com fallback |
 | `frontend/js/map.js` | Integração com Leaflet: mapa base, marcador do CD, rotas coloridas, marcadores de parada, ícones de veículo |
-| `frontend/js/main.js` | Estado da aplicação, relógio simulado (`requestAnimationFrame`), renderização dos painéis de frota e resumo, eventos de UI |
+| `frontend/js/main.js` | Estado da aplicação, geração de cenário sob demanda, indicadores de frota ociosa/sem ganho, relógio simulado (`requestAnimationFrame`), painéis de frota/resumo |
 
-Trecho central da lógica de animação (interpolação de posição do veículo
-ao longo do tempo simulado), para referência direta:
+Trecho central da detecção de "frota suficiente" (indicadores de veículos
+ociosos e de ganho nulo ao adicionar um veículo), e da lógica de animação
+(interpolação de posição do veículo ao longo do tempo simulado), para
+referência direta:
+
+```javascript
+// frontend/js/main.js — avisa quando a frota configurada excede o necessario
+function atualizarBanner(nSolicitado, nUtil, nIdle) {
+  const banner = document.getElementById("fleet-banner");
+
+  if (nIdle > 0) {
+    // mais veiculos do que municipios de entrega: excedente fica ocioso
+    banner.hidden = false;
+    banner.className = "fleet-banner banner-idle";
+    banner.textContent = `${nIdle} veículo(s) sem rota atribuída — não são necessários.`;
+    return;
+  }
+
+  if (nUtil > 1) {
+    const makespanAtual = state.makespanCache[nUtil];
+    const makespanAnterior = calcularMakespan(nUtil - 1);
+    if (makespanAtual >= makespanAnterior - 1e-6) {
+      // veiculo adicional nao reduziu o tempo total da operacao (makespan)
+      banner.hidden = false;
+      banner.className = "fleet-banner banner-no-gain";
+      banner.textContent = "Frota atual já é suficiente.";
+      return;
+    }
+  }
+
+  banner.hidden = true;
+}
+```
 
 ```javascript
 // frontend/js/main.js — posiciona cada veiculo conforme o relogio simulado

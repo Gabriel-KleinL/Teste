@@ -24,11 +24,12 @@ backend/            Pipeline Python (grafo, TSP, VRP, integração OSRM)
 frontend/            Aplicação web (HTML/CSS/JS + Leaflet, sem build step)
   index.html
   css/style.css
+  js/otimizacao.js   TSP (NN + 2-opt) e VRP (varredura angular) em JS — roda no navegador
   js/data.js
   js/map.js
   js/main.js
   vendor/leaflet/     Leaflet vendorizado localmente (sem dependência de CDN)
-  data/solution.json  Dados pré-computados consumidos pela aplicação
+  data/solution.json  Municípios, matriz completa de distância/tempo e cache de geometria
 
 relatorio/relatorio.md   Relatório acadêmico completo (PT-BR)
 ```
@@ -39,8 +40,9 @@ relatorio/relatorio.md   Relatório acadêmico completo (PT-BR)
 
 O arquivo `frontend/data/solution.json` já está gerado e versionado no
 repositório, então **não é necessário rodar o backend para usar a
-aplicação web**. Para regenerá-lo (por exemplo, após alterar a seleção de
-municípios ou o tamanho da frota):
+aplicação web** (o tamanho da frota é escolhido livremente na própria
+interface, sem precisar regenerar nada). Para regenerar os dados — por
+exemplo, após alterar a seleção de municípios:
 
 ```bash
 cd backend
@@ -63,19 +65,26 @@ cd frontend
 python3 -m http.server 8080
 ```
 
-Acesse `http://localhost:8080` no navegador. Requer internet apenas para
-carregar os mosaicos do mapa (OpenStreetMap) — o restante da aplicação
-(Leaflet, dados, lógica) é local.
+Acesse `http://localhost:8080` no navegador. Requer internet para carregar
+os mosaicos do mapa (OpenStreetMap) e, para tamanhos de frota fora do cache
+pré-aquecido (1–12 veículos), para buscar a geometria de novas rotas no
+OSRM — o restante da aplicação (Leaflet, algoritmos, lógica) é local.
 
 ## Principais decisões de escopo
 
 - **25 municípios** (Centro de Distribuição em Serra + 24 destinos de
   entrega mais populosos do estado), dentro da faixa de 20–30 sugerida.
 - **OSRM** (instância pública) para distância/tempo/geometria reais de
-  estrada, com fallback automático por Haversine caso a rede falhe.
-- **Frotas de 1 a 5 veículos** pré-computadas pelo backend; o frontend
-  alterna entre esses cenários (em vez de recalcular VRP ao vivo no
-  navegador, o que exigiria um backend em produção).
+  estrada, com fallback automático por Haversine caso a rede falhe — tanto
+  no backend quanto no frontend (que também chama o OSRM diretamente do
+  navegador para trechos fora do cache pré-aquecido, já que a instância
+  pública permite chamadas *cross-origin*).
+- **Número de veículos totalmente customizável**: o VRP roda ao vivo no
+  navegador (`frontend/js/otimizacao.js`) sobre a matriz de distância/tempo
+  embutida em `solution.json`, sem depender de um backend em produção. A
+  interface sinaliza automaticamente quando a frota configurada excede o
+  número de municípios (veículos ociosos) ou quando um veículo adicional
+  não reduz mais o tempo total da operação (retorno decrescente).
 - **Leaflet + JavaScript vanilla** (sem framework/build step) para o
   frontend, priorizando simplicidade de execução e ausência de
   dependência de CDN.
