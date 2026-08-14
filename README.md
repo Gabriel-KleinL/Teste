@@ -12,9 +12,9 @@ interativa com mapa real, frota animada e gestão de horários de saída.
 
 ```
 backend/            Pipeline Python (grafo, TSP, VRP, integração OSRM)
-  data/              Dados de municípios (78 no total, 25 selecionados)
+  data/              Municípios (78 no total, com id global estável 0-77)
   cache/             Cache em disco das respostas do OSRM
-  selecao_municipios.py
+  selecao_municipios.py   Preset padrão (CD + 24 de entrega); usuário pode escolher outro no app
   routing.py
   graph_builder.py
   tsp.py
@@ -27,9 +27,9 @@ frontend/            Aplicação web (HTML/CSS/JS + Leaflet, sem build step)
   js/otimizacao.js   TSP (NN + 2-opt) e VRP (varredura angular) em JS — roda no navegador
   js/data.js
   js/map.js
-  js/main.js
+  js/main.js         Inclui o seletor de localizações (CD e municípios de entrega livres)
   vendor/leaflet/     Leaflet vendorizado localmente (sem dependência de CDN)
-  data/solution.json  Municípios, matriz completa de distância/tempo e cache de geometria
+  data/solution.json  Os 78 municípios, matriz completa 78×78 de distância/tempo e cache de geometria
 
 relatorio/relatorio.md   Relatório acadêmico completo (PT-BR)
 ```
@@ -47,8 +47,7 @@ exemplo, após alterar a seleção de municípios:
 ```bash
 cd backend
 pip install -r requirements.txt
-python3 selecao_municipios.py   # gera data/municipios_selecionados.json
-python3 main.py                 # consulta o OSRM e gera ../frontend/data/solution.json
+python3 main.py   # consulta o OSRM (matriz 78x78 + geometria) e gera ../frontend/data/solution.json
 ```
 
 Requer acesso à internet (API pública do OSRM, `router.project-osrm.org`).
@@ -72,8 +71,12 @@ OSRM — o restante da aplicação (Leaflet, algoritmos, lógica) é local.
 
 ## Principais decisões de escopo
 
-- **25 municípios** (Centro de Distribuição em Serra + 24 destinos de
-  entrega mais populosos do estado), dentro da faixa de 20–30 sugerida.
+- **Todos os 78 municípios do ES estão disponíveis**, com um preset padrão
+  de 25 (Centro de Distribuição em Serra + 24 destinos de entrega mais
+  populosos do estado) pré-selecionado ao abrir a aplicação. O botão
+  "📍 Localizações" permite trocar o CD e marcar/desmarcar livremente
+  qualquer município como destino de entrega, sem limite fixo de
+  quantidade.
 - **OSRM** (instância pública) para distância/tempo/geometria reais de
   estrada, com fallback automático por Haversine caso a rede falhe — tanto
   no backend quanto no frontend (que também chama o OSRM diretamente do

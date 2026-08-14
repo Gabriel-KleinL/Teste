@@ -5,7 +5,8 @@
     "lat": -20.0778,
     "lon": -41.1261,
     "capital": false,
-    "populacao_2021": 30326
+    "populacao_2021": 30326,
+    "id": 0
   },
   {
     "codigo_ibge": "3200201",
@@ -13,7 +14,8 @@
     "lat": -20.758,
     "lon": -41.5382,
     "capital": false,
-    "populacao_2021": 29869
+    "populacao_2021": 29869,
+    "id": 1
   },
   {
     "codigo_ibge": "3200300",
@@ -21,7 +23,8 @@
     "lat": -20.6396,
     "lon": -40.7543,
     "capital": false,
-    "populacao_2021": 14670
+    "populacao_2021": 14670,
+    "id": 2
   },
   {
     "codigo_ibge": "3200359",
@@ -29,7 +32,8 @@
     "lat": -19.0618,
     "lon": -41.0209,
     "capital": false,
-    "populacao_2021": 7911
+    "populacao_2021": 7911,
+    "id": 3
   },
   {
     "codigo_ibge": "3200409",
@@ -37,7 +41,8 @@
     "lat": -20.7955,
     "lon": -40.6425,
     "capital": false,
-    "populacao_2021": 30285
+    "populacao_2021": 30285,
+    "id": 4
   },
   {
     "codigo_ibge": "3200508",
@@ -45,7 +50,8 @@
     "lat": -21.1523,
     "lon": -41.5693,
     "capital": false,
-    "populacao_2021": 7542
+    "populacao_2021": 7542,
+    "id": 5
   },
   {
     "codigo_ibge": "3200607",
@@ -53,7 +59,8 @@
     "lat": -19.82,
     "lon": -40.2764,
     "capital": false,
-    "populacao_2021": 104942
+    "populacao_2021": 104942,
+    "id": 6
   },
   {
     "codigo_ibge": "3200706",
@@ -61,7 +68,8 @@
     "lat": -20.913,
     "lon": -41.1986,
     "capital": false,
-    "populacao_2021": 12270
+    "populacao_2021": 12270,
+    "id": 7
   },
   {
     "codigo_ibge": "3200805",
@@ -69,7 +77,8 @@
     "lat": -19.5213,
     "lon": -41.0109,
     "capital": false,
-    "populacao_2021": 31263
+    "populacao_2021": 31263,
+    "id": 8
   },
   {
     "codigo_ibge": "3200904",
@@ -77,7 +86,8 @@
     "lat": -18.7548,
     "lon": -40.8965,
     "capital": false,
-    "populacao_2021": 45301
+    "populacao_2021": 45301,
+    "id": 9
   },
   {
     "codigo_ibge": "3201001",
@@ -85,7 +95,8 @@
     "lat": -18.5395,
     "lon": -40.3025,
     "capital": false,
-    "populacao_2021": 15146
+    "populacao_2021": 15146,
+    "id": 10
   },
   {
     "codigo_ibge": "3201100",
@@ -93,7 +104,8 @@
     "lat": -21.1173,
     "lon": -41.6731,
     "capital": false,
-    "populacao_2021": 9988
+    "populacao_2021": 9988,
+    "id": 11
   },
   {
     "codigo_ibge": "3201159",
@@ -101,7 +113,8 @@
     "lat": -20.1395,
     "lon": -41.2954,
     "capital": false,
-    "populacao_2021": 12450
+    "populacao_2021": 12450,
+    "id": 12
   },
   {
     "codigo_ibge": "3201209",
@@ -109,7 +122,8 @@
     "lat": -20.8462,
     "lon": -41.1198,
     "capital": false,
-    "populacao_2021": 212172
+    "populacao_2021": 212172,
+    "id": 13
   },
   {
     "codigo_ibge": "3201308",
@@ -117,7 +131,8 @@
     "lat": -20.2632,
     "lon": -40.4165,
     "capital": false,
-    "populacao_2021": 386495
+    "populacao_2021": 386495,
+    "id": 14
   },
   {
     "codigo_ibge": "3201407",
@@ -125,7 +140,8 @@
     "lat": -20.6033,
     "lon": -41.2031,
     "capital": false,
-    "populacao_2021": 37956
+    "populacao_2021": 37956,
+    "id": 15
   },
   {
     "codigo_ibge": "3201506",
@@ -133,7 +149,8 @@
     "lat": -19.5493,
     "lon": -40.6269,
     "capital": false,
-    "populacao_2021": 124283
+    "populacao_2021": 124283,
+    "id": 16
   },
   {
     "codigo_ibge": "3201605",
@@ -141,7 +158,8 @@
     "lat": -18.5883,
     "lon": -39.7362,
     "capital": false,
-    "populacao_2021": 31479
+    "populacao_2021": 31479,
+    "id": 17
   },
   {
     "codigo_ibge": "3201704",
@@ -149,7 +167,8 @@
     "lat": -20.3639,
     "lon": -41.2417,
     "capital": false,
-    "populacao_2021": 12887
+    "populacao_2021": 12887,
+    "id": 18
   },
   {
     "codigo_ibge": "3201803",
@@ -157,7 +176,8 @@
     "lat": -20.6229,
     "lon": -41.6937,
     "capital": false,
-    "populacao_2021": 4236
+    "populacao_2021": 4236,
+    "id": 19
   },
   {
     "codigo_ibge": "3201902",
@@ -165,7 +185,8 @@
     "lat": -20.3603,
     "lon": -40.6594,
     "capital": false,
-    "populacao_2021": 34120
+    "populacao_2021": 34120,
+    "id": 20
   },
   {
     "codigo_ibge": "3202009",
@@ -173,7 +194,8 @@
     "lat": -20.6931,
     "lon": -41.8405,
     "capital": false,
-    "populacao_2021": 6793
+    "populacao_2021": 6793,
+    "id": 21
   },
   {
     "codigo_ibge": "3202108",
@@ -181,7 +203,8 @@
     "lat": -18.3702,
     "lon": -40.836,
     "capital": false,
-    "populacao_2021": 22748
+    "populacao_2021": 22748,
+    "id": 22
   },
   {
     "codigo_ibge": "3202207",
@@ -189,7 +212,8 @@
     "lat": -19.937,
     "lon": -40.4078,
     "capital": false,
-    "populacao_2021": 22379
+    "populacao_2021": 22379,
+    "id": 23
   },
   {
     "codigo_ibge": "3202256",
@@ -197,7 +221,8 @@
     "lat": -19.1864,
     "lon": -40.4473,
     "capital": false,
-    "populacao_2021": 13047
+    "populacao_2021": 13047,
+    "id": 24
   },
   {
     "codigo_ibge": "3202405",
@@ -205,7 +230,8 @@
     "lat": -20.6772,
     "lon": -40.5093,
     "capital": false,
-    "populacao_2021": 128504
+    "populacao_2021": 128504,
+    "id": 25
   },
   {
     "codigo_ibge": "3202306",
@@ -213,7 +239,8 @@
     "lat": -20.7668,
     "lon": -41.6734,
     "capital": false,
-    "populacao_2021": 31372
+    "populacao_2021": 31372,
+    "id": 26
   },
   {
     "codigo_ibge": "3202454",
@@ -221,7 +248,8 @@
     "lat": -20.2347,
     "lon": -41.5087,
     "capital": false,
-    "populacao_2021": 26762
+    "populacao_2021": 26762,
+    "id": 27
   },
   {
     "codigo_ibge": "3202504",
@@ -229,7 +257,8 @@
     "lat": -19.8366,
     "lon": -40.3732,
     "capital": false,
-    "populacao_2021": 12701
+    "populacao_2021": 12701,
+    "id": 28
   },
   {
     "codigo_ibge": "3202553",
@@ -237,7 +266,8 @@
     "lat": -20.5466,
     "lon": -41.6667,
     "capital": false,
-    "populacao_2021": 8830
+    "populacao_2021": 8830,
+    "id": 29
   },
   {
     "codigo_ibge": "3202603",
@@ -245,7 +275,8 @@
     "lat": -20.7913,
     "lon": -40.8132,
     "capital": false,
-    "populacao_2021": 14083
+    "populacao_2021": 14083,
+    "id": 30
   },
   {
     "codigo_ibge": "3202652",
@@ -253,7 +284,8 @@
     "lat": -20.3501,
     "lon": -41.6444,
     "capital": false,
-    "populacao_2021": 13672
+    "populacao_2021": 13672,
+    "id": 31
   },
   {
     "codigo_ibge": "3202702",
@@ -261,7 +293,8 @@
     "lat": -19.8018,
     "lon": -40.8601,
     "capital": false,
-    "populacao_2021": 13982
+    "populacao_2021": 13982,
+    "id": 32
   },
   {
     "codigo_ibge": "3202801",
@@ -269,7 +302,8 @@
     "lat": -21.0095,
     "lon": -40.8307,
     "capital": false,
-    "populacao_2021": 34957
+    "populacao_2021": 34957,
+    "id": 33
   },
   {
     "codigo_ibge": "3202900",
@@ -277,7 +311,8 @@
     "lat": -19.875,
     "lon": -40.8753,
     "capital": false,
-    "populacao_2021": 10433
+    "populacao_2021": 10433,
+    "id": 34
   },
   {
     "codigo_ibge": "3203007",
@@ -285,7 +320,8 @@
     "lat": -20.3531,
     "lon": -41.5334,
     "capital": false,
-    "populacao_2021": 29417
+    "populacao_2021": 29417,
+    "id": 35
   },
   {
     "codigo_ibge": "3203056",
@@ -293,7 +329,8 @@
     "lat": -18.907,
     "lon": -40.0759,
     "capital": false,
-    "populacao_2021": 31589
+    "populacao_2021": 31589,
+    "id": 36
   },
   {
     "codigo_ibge": "3203106",
@@ -301,7 +338,8 @@
     "lat": -20.7994,
     "lon": -41.3948,
     "capital": false,
-    "populacao_2021": 12336
+    "populacao_2021": 12336,
+    "id": 37
   },
   {
     "codigo_ibge": "3203130",
@@ -309,7 +347,8 @@
     "lat": -19.7577,
     "lon": -40.386,
     "capital": false,
-    "populacao_2021": 16774
+    "populacao_2021": 16774,
+    "id": 38
   },
   {
     "codigo_ibge": "3203163",
@@ -317,7 +356,8 @@
     "lat": -19.8994,
     "lon": -41.0621,
     "capital": false,
-    "populacao_2021": 10919
+    "populacao_2021": 10919,
+    "id": 39
   },
   {
     "codigo_ibge": "3203205",
@@ -325,7 +365,8 @@
     "lat": -19.3946,
     "lon": -40.0643,
     "capital": false,
-    "populacao_2021": 179755
+    "populacao_2021": 179755,
+    "id": 40
   },
   {
     "codigo_ibge": "3203304",
@@ -333,7 +374,8 @@
     "lat": -18.8594,
     "lon": -41.124,
     "capital": false,
-    "populacao_2021": 15653
+    "populacao_2021": 15653,
+    "id": 41
   },
   {
     "codigo_ibge": "3203320",
@@ -341,7 +383,8 @@
     "lat": -21.0398,
     "lon": -40.8384,
     "capital": false,
-    "populacao_2021": 39259
+    "populacao_2021": 39259,
+    "id": 42
   },
   {
     "codigo_ibge": "3203346",
@@ -349,7 +392,8 @@
     "lat": -20.4159,
     "lon": -40.67,
     "capital": false,
-    "populacao_2021": 17141
+    "populacao_2021": 17141,
+    "id": 43
   },
   {
     "codigo_ibge": "3203353",
@@ -357,7 +401,8 @@
     "lat": -19.4114,
     "lon": -40.5456,
     "capital": false,
-    "populacao_2021": 13091
+    "populacao_2021": 13091,
+    "id": 44
   },
   {
     "codigo_ibge": "3203403",
@@ -365,7 +410,8 @@
     "lat": -21.0628,
     "lon": -41.3615,
     "capital": false,
-    "populacao_2021": 26079
+    "populacao_2021": 26079,
+    "id": 45
   },
   {
     "codigo_ibge": "3203502",
@@ -373,7 +419,8 @@
     "lat": -18.1303,
     "lon": -40.3668,
     "capital": false,
-    "populacao_2021": 18954
+    "populacao_2021": 18954,
+    "id": 46
   },
   {
     "codigo_ibge": "3203601",
@@ -381,7 +428,8 @@
     "lat": -18.0965,
     "lon": -40.52,
     "capital": false,
-    "populacao_2021": 5468
+    "populacao_2021": 5468,
+    "id": 47
   },
   {
     "codigo_ibge": "3203700",
@@ -389,7 +437,8 @@
     "lat": -20.4652,
     "lon": -41.4156,
     "capital": false,
-    "populacao_2021": 17176
+    "populacao_2021": 17176,
+    "id": 48
   },
   {
     "codigo_ibge": "3203809",
@@ -397,7 +446,8 @@
     "lat": -20.9509,
     "lon": -41.346,
     "capital": false,
-    "populacao_2021": 15602
+    "populacao_2021": 15602,
+    "id": 49
   },
   {
     "codigo_ibge": "3203908",
@@ -405,7 +455,8 @@
     "lat": -18.715,
     "lon": -40.4053,
     "capital": false,
-    "populacao_2021": 50751
+    "populacao_2021": 50751,
+    "id": 50
   },
   {
     "codigo_ibge": "3204005",
@@ -413,7 +464,8 @@
     "lat": -19.2229,
     "lon": -40.8534,
     "capital": false,
-    "populacao_2021": 23426
+    "populacao_2021": 23426,
+    "id": 51
   },
   {
     "codigo_ibge": "3204054",
@@ -421,7 +473,8 @@
     "lat": -18.3004,
     "lon": -39.9574,
     "capital": false,
-    "populacao_2021": 26575
+    "populacao_2021": 26575,
+    "id": 52
   },
   {
     "codigo_ibge": "3204104",
@@ -429,7 +482,8 @@
     "lat": -18.4141,
     "lon": -40.2171,
     "capital": false,
-    "populacao_2021": 27601
+    "populacao_2021": 27601,
+    "id": 53
   },
   {
     "codigo_ibge": "3204203",
@@ -437,7 +491,8 @@
     "lat": -20.8334,
     "lon": -40.7268,
     "capital": false,
-    "populacao_2021": 22388
+    "populacao_2021": 22388,
+    "id": 54
   },
   {
     "codigo_ibge": "3204252",
@@ -445,7 +500,8 @@
     "lat": -18.1253,
     "lon": -40.5458,
     "capital": false,
-    "populacao_2021": 8016
+    "populacao_2021": 8016,
+    "id": 55
   },
   {
     "codigo_ibge": "3204302",
@@ -453,7 +509,8 @@
     "lat": -21.0964,
     "lon": -41.0468,
     "capital": false,
-    "populacao_2021": 11741
+    "populacao_2021": 11741,
+    "id": 56
   },
   {
     "codigo_ibge": "3204351",
@@ -461,7 +518,8 @@
     "lat": -19.2719,
     "lon": -40.3366,
     "capital": false,
-    "populacao_2021": 19398
+    "populacao_2021": 19398,
+    "id": 57
   },
   {
     "codigo_ibge": "3204401",
@@ -469,7 +527,8 @@
     "lat": -20.8556,
     "lon": -40.9388,
     "capital": false,
-    "populacao_2021": 11630
+    "populacao_2021": 11630,
+    "id": 58
   },
   {
     "codigo_ibge": "3204500",
@@ -477,7 +536,8 @@
     "lat": -20.0999,
     "lon": -40.527,
     "capital": false,
-    "populacao_2021": 12171
+    "populacao_2021": 12171,
+    "id": 59
   },
   {
     "codigo_ibge": "3204559",
@@ -485,7 +545,8 @@
     "lat": -20.0253,
     "lon": -40.7439,
     "capital": false,
-    "populacao_2021": 41588
+    "populacao_2021": 41588,
+    "id": 60
   },
   {
     "codigo_ibge": "3204609",
@@ -493,7 +554,8 @@
     "lat": -19.9363,
     "lon": -40.5979,
     "capital": false,
-    "populacao_2021": 23853
+    "populacao_2021": 23853,
+    "id": 61
   },
   {
     "codigo_ibge": "3205002",
@@ -501,7 +563,8 @@
     "lat": -20.121,
     "lon": -40.3074,
     "capital": false,
-    "populacao_2021": 536765
+    "populacao_2021": 536765,
+    "id": 62
   },
   {
     "codigo_ibge": "3205010",
@@ -509,7 +572,8 @@
     "lat": -19.1897,
     "lon": -40.0974,
     "capital": false,
-    "populacao_2021": 31278
+    "populacao_2021": 31278,
+    "id": 63
   },
   {
     "codigo_ibge": "3204658",
@@ -517,7 +581,8 @@
     "lat": -19.1452,
     "lon": -40.6281,
     "capital": false,
-    "populacao_2021": 8735
+    "populacao_2021": 8735,
+    "id": 64
   },
   {
     "codigo_ibge": "3204708",
@@ -525,7 +590,8 @@
     "lat": -19.0182,
     "lon": -40.5365,
     "capital": false,
-    "populacao_2021": 39085
+    "populacao_2021": 39085,
+    "id": 65
   },
   {
     "codigo_ibge": "3204807",
@@ -533,7 +599,8 @@
     "lat": -21.0274,
     "lon": -41.6636,
     "capital": false,
-    "populacao_2021": 10536
+    "populacao_2021": 10536,
+    "id": 66
   },
   {
     "codigo_ibge": "3204906",
@@ -541,7 +608,8 @@
     "lat": -18.7214,
     "lon": -39.8579,
     "capital": false,
-    "populacao_2021": 134629
+    "populacao_2021": 134629,
+    "id": 67
   },
   {
     "codigo_ibge": "3204955",
@@ -549,7 +617,8 @@
     "lat": -19.7411,
     "lon": -40.6526,
     "capital": false,
-    "populacao_2021": 12602
+    "populacao_2021": 12602,
+    "id": 68
   },
   {
     "codigo_ibge": "3205036",
@@ -557,7 +626,8 @@
     "lat": -20.669,
     "lon": -41.0179,
     "capital": false,
-    "populacao_2021": 21778
+    "populacao_2021": 21778,
+    "id": 69
   },
   {
     "codigo_ibge": "3205069",
@@ -565,7 +635,8 @@
     "lat": -20.327,
     "lon": -41.1355,
     "capital": false,
-    "populacao_2021": 26204
+    "populacao_2021": 26204,
+    "id": 70
   },
   {
     "codigo_ibge": "3205101",
@@ -573,7 +644,8 @@
     "lat": -20.3825,
     "lon": -40.4933,
     "capital": false,
-    "populacao_2021": 80735
+    "populacao_2021": 80735,
+    "id": 71
   },
   {
     "codigo_ibge": "3205150",
@@ -581,7 +653,8 @@
     "lat": -18.6091,
     "lon": -40.609,
     "capital": false,
-    "populacao_2021": 9280
+    "populacao_2021": 9280,
+    "id": 72
   },
   {
     "codigo_ibge": "3205176",
@@ -589,7 +662,8 @@
     "lat": -18.9958,
     "lon": -40.3849,
     "capital": false,
-    "populacao_2021": 14065
+    "populacao_2021": 14065,
+    "id": 73
   },
   {
     "codigo_ibge": "3205200",
@@ -597,7 +671,8 @@
     "lat": -20.3417,
     "lon": -40.2875,
     "capital": false,
-    "populacao_2021": 508655
+    "populacao_2021": 508655,
+    "id": 74
   },
   {
     "codigo_ibge": "3205309",
@@ -605,7 +680,8 @@
     "lat": -20.3155,
     "lon": -40.3128,
     "capital": true,
-    "populacao_2021": 369534
+    "populacao_2021": 369534,
+    "id": 75
   },
   {
     "codigo_ibge": "3200169",
@@ -613,7 +689,8 @@
     "lat": -18.5482,
     "lon": -40.9854,
     "capital": false,
-    "populacao_2021": 10801
+    "populacao_2021": 10801,
+    "id": 76
   },
   {
     "codigo_ibge": "3200136",
@@ -621,6 +698,7 @@
     "lat": -18.9846,
     "lon": -40.7437,
     "capital": false,
-    "populacao_2021": 9621
+    "populacao_2021": 9621,
+    "id": 77
   }
 ]

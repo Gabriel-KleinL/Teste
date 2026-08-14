@@ -2,8 +2,9 @@
 Construcao do grafo de distancias/tempos reais entre os municipios
 selecionados, usando NetworkX.
 
-O grafo e completo (K25): como o problema e o Caixeiro Viajante / VRP
-classico, assume-se que existe um caminho rodoviario (nao necessariamente
+O grafo e completo (Kn, com n = numero de municipios passados - hoje, os 78
+municipios do ES): como o problema e o Caixeiro Viajante / VRP classico,
+assume-se que existe um caminho rodoviario (nao necessariamente
 uma aresta direta unica) entre quaisquer dois municipios, com peso igual ao
 menor caminho rodoviario real entre eles (distancia e tempo), obtido do
 OSRM. O grafo e direcionado (DiGraph) porque distancia/tempo de A->B podem

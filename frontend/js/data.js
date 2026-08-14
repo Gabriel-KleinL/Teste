@@ -35,16 +35,12 @@ const AppData = (() => {
     return municipiosPorId;
   }
 
-  function getCdId() {
-    return solution.meta.cd_id;
-  }
-
   function getMeta() {
     return solution.meta;
   }
 
-  function getIndicesEntrega() {
-    return solution.municipios.filter((m) => m.papel === "entrega").map((m) => m.id);
+  function getTodosMunicipios() {
+    return solution.municipios;
   }
 
   function getMatrizDist() {
@@ -231,11 +227,9 @@ const AppData = (() => {
     return { pontos, paradas, tempoTotalMin: cumTempo, distTotalKm: cumDist };
   }
 
-  /** Rota "ingenua": visita os municipios de entrega na ordem em que aparecem no dataset, sem otimizacao. */
-  function getCenarioIngenuo() {
-    const cdIdx = getCdId();
-    const indicesEntrega = getIndicesEntrega();
-    const tourIds = [cdIdx, ...indicesEntrega, cdIdx];
+  /** Rota "ingenua": visita os municipios de entrega na ordem dada (sem otimizacao). */
+  function getCenarioIngenuo(cdId, entregaIds) {
+    const tourIds = [cdId, ...entregaIds, cdId];
     const matrizDist = getMatrizDist();
     const matrizTempo = getMatrizTempo();
     return {
@@ -249,9 +243,8 @@ const AppData = (() => {
     carregar,
     getMunicipio,
     getMunicipiosPorId,
-    getCdId,
+    getTodosMunicipios,
     getMeta,
-    getIndicesEntrega,
     getMatrizDist,
     getMatrizTempo,
     getAresta,

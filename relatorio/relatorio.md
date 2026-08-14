@@ -12,11 +12,15 @@ transportadora fictícia sediada na Grande Vitória/ES como um problema de
 roteamento em grafos — o clássico Problema do Caixeiro Viajante (*Traveling
 Salesman Problem*, TSP) e sua extensão para múltiplos veículos, o Problema
 de Roteamento de Veículos (*Vehicle Routing Problem*, VRP). Os 78 municípios
-do Espírito Santo foram obtidos de fontes públicas (IBGE), dos quais um
-subconjunto de 25 (1 Centro de Distribuição + 24 destinos de entrega) foi
-selecionado por relevância populacional/logística. As distâncias e tempos
-reais de deslocamento rodoviário — e a geometria das rotas — foram obtidas
-via API pública do OSRM (*Open Source Routing Machine*). O grafo foi
+do Espírito Santo foram obtidos de fontes públicas (IBGE) e **todos** estão
+disponíveis na aplicação web para compor o cenário: por padrão, um
+subconjunto de 25 (1 Centro de Distribuição + 24 destinos de entrega) é
+sugerido por relevância populacional/logística, mas o usuário pode escolher
+livremente, em um seletor de localizações, qual município é o Centro de
+Distribuição e quais entram como destinos de entrega, sem limite fixo de
+quantidade. As distâncias e tempos reais de deslocamento rodoviário — e a
+geometria das rotas — foram obtidas via API pública do OSRM (*Open Source
+Routing Machine*). O grafo foi
 construído em Python com NetworkX; o TSP foi resolvido por uma heurística
 construtiva (vizinho mais próximo) seguida de refinamento por busca local
 (2-opt); o VRP foi resolvido por uma heurística de particionamento
@@ -102,17 +106,22 @@ restrições de tráfego podem tornar o custo de `i → j` diferente do custo de
 `j → i` no mundo real — o OSRM retorna, de fato, valores levemente
 assimétricos para diversos pares.
 
-O grafo é **completo** (`K25`, 600 arestas direcionadas) porque, para fins
-de roteamento, assume-se que existe sempre um caminho rodoviário viável
-entre quaisquer dois municípios — o peso da aresta é o custo do **menor
-caminho rodoviário real** entre eles (já calculado pelo motor de roteamento
-OSRM sobre a malha viária completa), e não uma conexão direta artificial.
+O grafo, no backend, é **completo** sobre os 78 municípios do estado (`K78`,
+6.006 arestas direcionadas) — e não apenas sobre os 25 do preset padrão —
+porque, para fins de roteamento, assume-se que existe sempre um caminho
+rodoviário viável entre quaisquer dois municípios, e a aplicação web permite
+ao usuário escolher **qualquer subconjunto** deles como CD/destinos de
+entrega (seção 6.3). O peso da aresta é o custo do **menor caminho
+rodoviário real** entre os dois municípios (já calculado pelo motor de
+roteamento OSRM sobre a malha viária completa), e não uma conexão direta
+artificial.
 
-O problema de otimização consiste em encontrar, sobre esse grafo:
+O problema de otimização consiste em encontrar, sobre o subgrafo induzido
+pelos municípios escolhidos pelo usuário (CD + N destinos de entrega):
 
 - **(TSP)** um ciclo Hamiltoniano de custo mínimo que parte do CD, visita
-  todos os 24 municípios de entrega exatamente uma vez, e retorna ao CD;
-- **(VRP)** uma partição dos 24 municípios de entrega em `k` subconjuntos
+  todos os N municípios de entrega exatamente uma vez, e retorna ao CD;
+- **(VRP)** uma partição dos N municípios de entrega em `k` subconjuntos
   (um por veículo) e, para cada subconjunto, um ciclo Hamiltoniano
   CD → ... → CD de custo mínimo, de forma a minimizar o tempo total da
   operação.
@@ -134,14 +143,20 @@ municipal) combinado com a **população residente estimada 2021**, obtida
 diretamente da API de agregados do IBGE (agregado 6579, variável 9324 —
 "População residente estimada").
 
-Como 78 municípios tornariam o TSP/VRP visualmente poluído no mapa e
-computacionalmente mais custoso para fins didáticos (sem alterar a
-conclusão qualitativa do estudo), foi selecionado um subconjunto de **25
-municípios**, dentro da faixa de 20 a 30 sugerida:
+Inicialmente, para conter a poluição visual do mapa e o custo computacional
+de uma primeira versão do trabalho, havia sido selecionado um subconjunto
+fixo de 25 municípios (dentro da faixa de 20 a 30 sugerida no enunciado).
+Como o TSP e o VRP escalam confortavelmente até os 78 municípios inteiros
+do estado no navegador (o 2-opt em JavaScript resolve isso em milissegundos
+— seção 6.2), essa restrição foi removida: a aplicação web hoje permite
+escolher livremente o CD e qualquer subconjunto de municípios de entrega
+entre os 78, sem limite fixo de quantidade. O subconjunto de 25 continua
+sendo usado como **preset padrão** — a seleção pré-marcada ao abrir a
+aplicação pela primeira vez — com o seguinte critério:
 
-- O **Centro de Distribuição** foi fixado em **Serra** (justificativa na
+- O **Centro de Distribuição padrão** é **Serra** (justificativa na
   seção 1).
-- Os demais **24 municípios de entrega** são os 24 municípios mais
+- Os demais **24 municípios de entrega padrão** são os 24 municípios mais
   populosos do estado, excluído o próprio CD. A população foi usada como
   proxy de relevância econômica e logística: municípios mais populosos
   concentram maior comércio, indústria e demanda por transporte de
@@ -160,15 +175,18 @@ macrorregiões do estado, verificada a posteriori:
 | Central Serrana      | 3 |
 | Sul                  | 5 |
 
-Os 24 municípios de entrega selecionados foram: Vila Velha, Cariacica,
+Os 24 municípios de entrega do preset padrão são: Vila Velha, Cariacica,
 Vitória, Cachoeiro de Itapemirim, Linhares, São Mateus, Guarapari, Colatina,
 Aracruz, Viana, Nova Venécia, Barra de São Francisco, Santa Maria de
 Jetibá, Marataízes, São Gabriel da Palha, Castelo, Itapemirim, Domingos
 Martins, Jaguaré, Conceição da Barra, Guaçuí, Sooretama, Baixo Guandu e
-Afonso Cláudio.
+Afonso Cláudio. Qualquer um deles — ou dos outros 54 municípios do estado —
+pode ser adicionado, removido, ou definido como novo CD a qualquer momento
+pelo seletor de localizações da aplicação (seção 6.3).
 
-O código de seleção (`backend/selecao_municipios.py`) e o dataset completo
-dos 78 municípios (`backend/data/municipios_es_78.json`) são mantidos no
+O código do preset (`backend/selecao_municipios.py`) e o dataset completo
+dos 78 municípios (`backend/data/municipios_es_78.json`, cada um com um id
+global estável de 0 a 77, usado em toda a aplicação) são mantidos no
 repositório para transparência e reprodutibilidade do critério.
 
 ### 3.2 Distâncias, tempos e geometria de rota reais
@@ -178,15 +196,21 @@ utilizada a API pública e gratuita do **OSRM** (Open Source Routing
 Machine), instância de demonstração `router.project-osrm.org`, por meio de
 dois serviços:
 
-- **`/table`**: calcula, em uma única requisição, a matriz completa `25×25`
-  de distância e duração entre todos os pares de municípios selecionados.
-  É o serviço mais eficiente para alimentar os algoritmos de otimização,
-  pois evita 600 requisições individuais.
+- **`/table`**: calcula, em uma única requisição (~0,8 s, verificado
+  empiricamente), a matriz completa **78×78** de distância e duração entre
+  todos os pares dos municípios do estado. É o serviço mais eficiente para
+  alimentar os algoritmos de otimização, pois evita 6.006 requisições
+  individuais, e permite que a aplicação web resolva o TSP/VRP para
+  **qualquer** subconjunto de municípios escolhido pelo usuário sem
+  depender de uma nova chamada de rede para a matriz.
 - **`/route`**: para cada trecho **efetivamente utilizado** em alguma rota
-  final (TSP ou VRP, para diferentes tamanhos de frota), retorna a
-  geometria completa (sequência de coordenadas seguindo o traçado real da
-  rodovia), usada para desenhar a rota real no mapa interativo e para
-  animar o deslocamento dos veículos.
+  final (TSP ou VRP, para diferentes tamanhos de frota e diferentes
+  seleções de municípios), retorna a geometria completa (sequência de
+  coordenadas seguindo o traçado real da rodovia), usada para desenhar a
+  rota real no mapa interativo e para animar o deslocamento dos veículos.
+  O backend pré-aquece essa geometria para o preset padrão (frotas de 1 a
+  12 veículos); para qualquer outra combinação de municípios/frota, o
+  próprio frontend busca a geometria faltante ao vivo (seção 6.2).
 
 Como a geometria bruta retornada pelo OSRM pode conter milhares de pontos
 por trecho (grau de detalhe desnecessário para visualização em escala
@@ -367,6 +391,16 @@ mapa do OpenStreetMap, esses sim, continua exigindo acesso à internet).
 
 ### 6.3 Interface e gestão da frota
 
+- **Seletor de localizações**: um botão "📍 Localizações" na barra superior
+  abre um modal com os 78 municípios do estado (busca por nome, ordenados
+  por população), cada um com uma opção de rádio para defini-lo como Centro
+  de Distribuição e uma caixa de marcação para incluí-lo como destino de
+  entrega — mutuamente exclusivas (o CD não pode também ser destino). O
+  preset padrão (seção 3.1) vem pré-marcado, mas pode ser livremente
+  alterado (inclusive restaurado a qualquer momento pelo botão "Restaurar
+  padrão"); ao aplicar, o cenário é recalculado do zero para a nova seleção.
+  Não há limite fixo de municípios de entrega além do bom senso (o próprio
+  número de municípios do estado).
 - **Número de veículos totalmente customizável**: um campo numérico (e os
   botões "+"/"−") no topo da aplicação permite escolher **qualquer
   quantidade** de veículos; a cada mudança, o VRP é recalculado ao vivo no
@@ -509,12 +543,13 @@ Observações relevantes:
    segundos a mais para carregar.
 8. **Limite de veículos úteis.** Como cada veículo precisa de ao menos um
    município para ter sentido operacional, o número de veículos
-   "produtivos" está limitado ao número de municípios de entrega (24). A
-   aplicação permite configurar frotas maiores livremente, mas sinaliza o
-   excedente como ocioso (seção 6.3) em vez de impedir a escolha — uma
-   decisão deliberada de deixar o usuário explorar o comportamento do
-   sistema além do ponto útil, em vez de restringir artificialmente a
-   interface.
+   "produtivos" está limitado ao número de municípios de entrega
+   atualmente selecionados (24 no preset padrão, mas até 77 caso o usuário
+   marque todos os municípios do estado exceto o CD). A aplicação permite
+   configurar frotas maiores livremente, mas sinaliza o excedente como
+   ocioso (seção 6.3) em vez de impedir a escolha — uma decisão deliberada
+   de deixar o usuário explorar o comportamento do sistema além do ponto
+   útil, em vez de restringir artificialmente a interface.
 
 ---
 
@@ -568,12 +603,12 @@ projeto):
 
 | Arquivo | Responsabilidade |
 |---|---|
-| `backend/selecao_municipios.py` | Seleção dos 25 municípios (CD + 24 de entrega) a partir do dataset completo de 78, por critério populacional |
+| `backend/selecao_municipios.py` | Define o preset padrão (CD + 24 de entrega) dentro do dataset completo de 78 municípios, por critério populacional — a aplicação web permite escolher qualquer outro subconjunto |
 | `backend/routing.py` | Cliente OSRM (matriz `/table` e geometria `/route`), cache em disco, fallback Haversine, simplificação de geometria (RDP) |
-| `backend/graph_builder.py` | Construção do grafo `networkx.DiGraph` a partir da matriz de distância/tempo |
+| `backend/graph_builder.py` | Construção do grafo `networkx.DiGraph` (78 nós) a partir da matriz de distância/tempo |
 | `backend/tsp.py` | Heurística de TSP: vizinho mais próximo + refinamento 2-opt |
 | `backend/vrp.py` | Heurística de VRP: varredura angular (particionamento) + TSP por veículo; métricas de comparação frota vs. veículo único |
-| `backend/main.py` | Orquestrador: gera `solution.json` com municípios, matriz completa 25×25 de distância/tempo e cache de geometria pré-aquecido (frotas de 1 a 12), além de validar os algoritmos no console |
+| `backend/main.py` | Orquestrador: gera `solution.json` com os 78 municípios, matriz completa 78×78 de distância/tempo e cache de geometria pré-aquecido para o preset padrão (frotas de 1 a 12), além de validar os algoritmos no console |
 
 Trechos centrais dos dois algoritmos de otimização, para referência direta
 neste documento:

@@ -1,6 +1,5 @@
 """
-Selecao dos municipios representativos do Espirito Santo para o estudo de
-otimizacao de rotas.
+Preset padrao de municipios para o estudo de otimizacao de rotas.
 
 Fonte dos dados brutos (backend/data/municipios_es_78.json):
   - Coordenadas: dataset publico "kelvins/Municipios-Brasileiros" (derivado do IBGE)
@@ -8,25 +7,32 @@ Fonte dos dados brutos (backend/data/municipios_es_78.json):
     (agregado 6579, variavel 9324 - Populacao residente estimada)
     https://servicodados.ibge.gov.br/api/v3/agregados/6579/periodos/2021/variaveis/9324
 
-Criterio de selecao (justificado no relatorio academico):
-  1. O Centro de Distribuicao (CD) fica fixo no municipio de Serra/ES, por ser
-     o municipio mais populoso do estado e um polo logistico-industrial real
-     da Grande Vitoria (regiao onde uma transportadora fictícia atuaria).
-  2. Os demais municipios de entrega sao os N-1 mais populosos do estado,
-     excluindo o CD. Populacao é usada como proxy de relevancia economica e
-     logistica (maior populacao -> maior demanda de entregas, maior geracao
-     de carga/comercio).
+Desde que a aplicacao web passou a permitir escolher livremente o Centro de
+Distribuicao (CD) e os municipios de entrega entre os 78 do Espirito Santo
+(ver frontend, seletor de localizacoes), este modulo nao filtra mais o
+dataset: ele apenas define o PRESET PADRAO exibido ao usuario ao abrir a
+aplicacao pela primeira vez, e usado pelo backend para pre-aquecer o cache
+de geometria de rota (as combinacoes de trechos mais prováveis de serem
+usadas). Os ids retornados sao os mesmos ids globais (0-77) usados em
+todo o pipeline (municipios_es_78.json, ja ordenado e indexado).
+
+Criterio do preset padrao (justificado no relatorio academico):
+  1. O CD comeca fixado no municipio de Serra/ES, por ser o municipio mais
+     populoso do estado e um polo logistico-industrial real da Grande
+     Vitoria (regiao onde uma transportadora fictícia atuaria).
+  2. Os demais municipios de entrega sugeridos sao os 24 mais populosos do
+     estado, excluindo o CD. Populacao e usada como proxy de relevancia
+     economica e logistica (maior populacao -> maior demanda de entregas).
   3. Esse criterio, aplicado ao ES, produz naturalmente uma boa dispersao
      geografica entre as macrorregioes do estado (Metropolitana, Norte,
-     Noroeste, Central Serrana e Sul), o que é verificado apos a selecao e
-     reportado, em vez de forcado manualmente.
+     Noroeste, Central Serrana e Sul), o que e verificado a seguir.
 """
 import json
 import os
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), "data")
-CD_NOME = "Serra"
-N_TOTAL = 25  # CD + 24 municipios de entrega (dentro da faixa 20-30 pedida)
+CD_NOME_PADRAO = "Serra"
+N_ENTREGA_PADRAO = 24
 
 
 def carregar_municipios_completos():
@@ -34,27 +40,21 @@ def carregar_municipios_completos():
         return json.load(f)
 
 
-def selecionar_municipios():
-    municipios = carregar_municipios_completos()
+def preset_padrao(municipios):
+    """Retorna (cd_id, entrega_ids) usando os ids globais (0-77)."""
     sem_populacao = [m for m in municipios if m["populacao_2021"] is None]
     if sem_populacao:
         raise ValueError(f"Municipios sem populacao: {sem_populacao}")
 
-    cd = next(m for m in municipios if m["nome"] == CD_NOME)
-    demais = [m for m in municipios if m["nome"] != CD_NOME]
-    demais_ordenados = sorted(demais, key=lambda m: -m["populacao_2021"])
-
-    selecionados = [dict(cd, papel="CD")] + [
-        dict(m, papel="entrega") for m in demais_ordenados[: N_TOTAL - 1]
-    ]
-
-    for i, m in enumerate(selecionados):
-        m["id"] = i
-
-    return selecionados
+    cd = next(m for m in municipios if m["nome"] == CD_NOME_PADRAO)
+    demais_ordenados = sorted(
+        (m for m in municipios if m["id"] != cd["id"]), key=lambda m: -m["populacao_2021"]
+    )
+    entrega_ids = [m["id"] for m in demais_ordenados[:N_ENTREGA_PADRAO]]
+    return cd["id"], entrega_ids
 
 
-def resumo_regional(selecionados):
+def resumo_regional(municipios_por_id, cd_id, entrega_ids):
     """Classificacao aproximada por macrorregiao (apenas para o relatorio)."""
     regioes = {
         "Metropolitana": ["Serra", "Vitória", "Vila Velha", "Cariacica", "Viana", "Guarapari"],
@@ -64,22 +64,24 @@ def resumo_regional(selecionados):
         "Sul": ["Cachoeiro de Itapemirim", "Castelo", "Itapemirim", "Marataízes", "Guaçuí"],
     }
     contagem = {r: 0 for r in regioes}
-    for m in selecionados:
-        for regiao, nomes in regioes.items():
-            if m["nome"] in nomes:
+    nomes_selecionados = [municipios_por_id[i]["nome"] for i in entrega_ids]
+    for regiao, nomes in regioes.items():
+        for nome in nomes_selecionados:
+            if nome in nomes:
                 contagem[regiao] += 1
     return contagem
 
 
 if __name__ == "__main__":
-    selecionados = selecionar_municipios()
-    out_path = os.path.join(DATA_DIR, "municipios_selecionados.json")
-    with open(out_path, "w", encoding="utf-8") as f:
-        json.dump(selecionados, f, ensure_ascii=False, indent=2)
+    municipios = carregar_municipios_completos()
+    municipios_por_id = {m["id"]: m for m in municipios}
+    cd_id, entrega_ids = preset_padrao(municipios)
 
-    print(f"{len(selecionados)} municipios selecionados (CD + {len(selecionados) - 1} de entrega)")
-    print(f"CD: {selecionados[0]['nome']}")
+    print(f"Preset padrao: CD = {municipios_por_id[cd_id]['nome']} (id {cd_id})")
+    print(f"{len(entrega_ids)} municipios de entrega sugeridos:")
+    for i in entrega_ids:
+        print(f"  - {municipios_por_id[i]['nome']} (id {i})")
+
     print("\nDistribuicao por macrorregiao:")
-    for regiao, qtd in resumo_regional(selecionados).items():
+    for regiao, qtd in resumo_regional(municipios_por_id, cd_id, entrega_ids).items():
         print(f"  {regiao}: {qtd}")
-    print(f"\nSalvo em {out_path}")
