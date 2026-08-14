@@ -1,0 +1,252 @@
+[
+  {
+    "codigo_ibge": "3205002",
+    "nome": "Serra",
+    "lat": -20.121,
+    "lon": -40.3074,
+    "capital": false,
+    "populacao_2021": 536765,
+    "papel": "CD",
+    "id": 0
+  },
+  {
+    "codigo_ibge": "3205200",
+    "nome": "Vila Velha",
+    "lat": -20.3417,
+    "lon": -40.2875,
+    "capital": false,
+    "populacao_2021": 508655,
+    "papel": "entrega",
+    "id": 1
+  },
+  {
+    "codigo_ibge": "3201308",
+    "nome": "Cariacica",
+    "lat": -20.2632,
+    "lon": -40.4165,
+    "capital": false,
+    "populacao_2021": 386495,
+    "papel": "entrega",
+    "id": 2
+  },
+  {
+    "codigo_ibge": "3205309",
+    "nome": "Vitória",
+    "lat": -20.3155,
+    "lon": -40.3128,
+    "capital": true,
+    "populacao_2021": 369534,
+    "papel": "entrega",
+    "id": 3
+  },
+  {
+    "codigo_ibge": "3201209",
+    "nome": "Cachoeiro de Itapemirim",
+    "lat": -20.8462,
+    "lon": -41.1198,
+    "capital": false,
+    "populacao_2021": 212172,
+    "papel": "entrega",
+    "id": 4
+  },
+  {
+    "codigo_ibge": "3203205",
+    "nome": "Linhares",
+    "lat": -19.3946,
+    "lon": -40.0643,
+    "capital": false,
+    "populacao_2021": 179755,
+    "papel": "entrega",
+    "id": 5
+  },
+  {
+    "codigo_ibge": "3204906",
+    "nome": "São Mateus",
+    "lat": -18.7214,
+    "lon": -39.8579,
+    "capital": false,
+    "populacao_2021": 134629,
+    "papel": "entrega",
+    "id": 6
+  },
+  {
+    "codigo_ibge": "3202405",
+    "nome": "Guarapari",
+    "lat": -20.6772,
+    "lon": -40.5093,
+    "capital": false,
+    "populacao_2021": 128504,
+    "papel": "entrega",
+    "id": 7
+  },
+  {
+    "codigo_ibge": "3201506",
+    "nome": "Colatina",
+    "lat": -19.5493,
+    "lon": -40.6269,
+    "capital": false,
+    "populacao_2021": 124283,
+    "papel": "entrega",
+    "id": 8
+  },
+  {
+    "codigo_ibge": "3200607",
+    "nome": "Aracruz",
+    "lat": -19.82,
+    "lon": -40.2764,
+    "capital": false,
+    "populacao_2021": 104942,
+    "papel": "entrega",
+    "id": 9
+  },
+  {
+    "codigo_ibge": "3205101",
+    "nome": "Viana",
+    "lat": -20.3825,
+    "lon": -40.4933,
+    "capital": false,
+    "populacao_2021": 80735,
+    "papel": "entrega",
+    "id": 10
+  },
+  {
+    "codigo_ibge": "3203908",
+    "nome": "Nova Venécia",
+    "lat": -18.715,
+    "lon": -40.4053,
+    "capital": false,
+    "populacao_2021": 50751,
+    "papel": "entrega",
+    "id": 11
+  },
+  {
+    "codigo_ibge": "3200904",
+    "nome": "Barra de São Francisco",
+    "lat": -18.7548,
+    "lon": -40.8965,
+    "capital": false,
+    "populacao_2021": 45301,
+    "papel": "entrega",
+    "id": 12
+  },
+  {
+    "codigo_ibge": "3204559",
+    "nome": "Santa Maria de Jetibá",
+    "lat": -20.0253,
+    "lon": -40.7439,
+    "capital": false,
+    "populacao_2021": 41588,
+    "papel": "entrega",
+    "id": 13
+  },
+  {
+    "codigo_ibge": "3203320",
+    "nome": "Marataízes",
+    "lat": -21.0398,
+    "lon": -40.8384,
+    "capital": false,
+    "populacao_2021": 39259,
+    "papel": "entrega",
+    "id": 14
+  },
+  {
+    "codigo_ibge": "3204708",
+    "nome": "São Gabriel da Palha",
+    "lat": -19.0182,
+    "lon": -40.5365,
+    "capital": false,
+    "populacao_2021": 39085,
+    "papel": "entrega",
+    "id": 15
+  },
+  {
+    "codigo_ibge": "3201407",
+    "nome": "Castelo",
+    "lat": -20.6033,
+    "lon": -41.2031,
+    "capital": false,
+    "populacao_2021": 37956,
+    "papel": "entrega",
+    "id": 16
+  },
+  {
+    "codigo_ibge": "3202801",
+    "nome": "Itapemirim",
+    "lat": -21.0095,
+    "lon": -40.8307,
+    "capital": false,
+    "populacao_2021": 34957,
+    "papel": "entrega",
+    "id": 17
+  },
+  {
+    "codigo_ibge": "3201902",
+    "nome": "Domingos Martins",
+    "lat": -20.3603,
+    "lon": -40.6594,
+    "capital": false,
+    "populacao_2021": 34120,
+    "papel": "entrega",
+    "id": 18
+  },
+  {
+    "codigo_ibge": "3203056",
+    "nome": "Jaguaré",
+    "lat": -18.907,
+    "lon": -40.0759,
+    "capital": false,
+    "populacao_2021": 31589,
+    "papel": "entrega",
+    "id": 19
+  },
+  {
+    "codigo_ibge": "3201605",
+    "nome": "Conceição da Barra",
+    "lat": -18.5883,
+    "lon": -39.7362,
+    "capital": false,
+    "populacao_2021": 31479,
+    "papel": "entrega",
+    "id": 20
+  },
+  {
+    "codigo_ibge": "3202306",
+    "nome": "Guaçuí",
+    "lat": -20.7668,
+    "lon": -41.6734,
+    "capital": false,
+    "populacao_2021": 31372,
+    "papel": "entrega",
+    "id": 21
+  },
+  {
+    "codigo_ibge": "3205010",
+    "nome": "Sooretama",
+    "lat": -19.1897,
+    "lon": -40.0974,
+    "capital": false,
+    "populacao_2021": 31278,
+    "papel": "entrega",
+    "id": 22
+  },
+  {
+    "codigo_ibge": "3200805",
+    "nome": "Baixo Guandu",
+    "lat": -19.5213,
+    "lon": -41.0109,
+    "capital": false,
+    "populacao_2021": 31263,
+    "papel": "entrega",
+    "id": 23
+  },
+  {
+    "codigo_ibge": "3200102",
+    "nome": "Afonso Cláudio",
+    "lat": -20.0778,
+    "lon": -41.1261,
+    "capital": false,
+    "populacao_2021": 30326,
+    "papel": "entrega",
+    "id": 24
+  }
+]
