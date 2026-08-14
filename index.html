@@ -30,6 +30,8 @@
       <input type="checkbox" id="chk-naive" />
       Mostrar rota ingênua (sem otimização)
     </label>
+
+    <button id="btn-locations" class="btn-locations" title="Escolher o CD e os municípios de entrega">📍 Localizações</button>
   </div>
 
   <div class="clock-controls">
@@ -72,6 +74,29 @@
     </div>
   </aside>
 </main>
+
+<div id="loc-modal-backdrop" class="loc-modal-backdrop" hidden>
+  <div class="loc-modal">
+    <div class="loc-modal-header">
+      <h2>Escolher localizações</h2>
+      <button id="btn-loc-close" class="btn-icon" title="Fechar">×</button>
+    </div>
+    <p class="loc-modal-hint">
+      Escolha o Centro de Distribuição (coluna "CD") e marque quais dos 78 municípios do
+      Espírito Santo entram como destinos de entrega. Não há limite fixo de destinos.
+    </p>
+    <input type="text" id="input-loc-search" class="loc-search" placeholder="Buscar município…" />
+    <div id="loc-list" class="loc-list"></div>
+    <div class="loc-modal-footer">
+      <span id="loc-count" class="loc-count"></span>
+      <div class="loc-modal-actions">
+        <button id="btn-loc-restore" class="btn-secondary">Restaurar padrão</button>
+        <button id="btn-loc-cancel" class="btn-secondary">Cancelar</button>
+        <button id="btn-loc-apply" class="btn-primary">Aplicar seleção</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 <footer class="footer">
   Fonte das rotas: OSRM (roteamento real por rodovia) · Coordenadas e população: IBGE ·

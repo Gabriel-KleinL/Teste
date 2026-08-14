@@ -16,8 +16,9 @@
  */
 
 const state = {
+  cdId: null, // id do municipio-sede do Centro de Distribuicao (customizavel)
+  entregaIds: [], // ids dos municipios de entrega ativos (customizavel)
   nVeiculosSolicitados: 1,
-  nMunicipiosEntrega: 0,
   rotas: [], // { idx, cor, tourNomes, municipiosAtendidos, distKm, tempoMin, trilha, departureMin, carMarker, status, idle }
   simClockMin: 360, // 06:00
   playing: false,
@@ -26,10 +27,11 @@ const state = {
   naiveTrilha: null,
   tempoIngenuoMin: null,
   distIngenuoKm: null,
-  makespanCache: {}, // n -> makespan (so tempo, sem geometria) para detectar "sem ganho"
+  makespanCache: {}, // n -> makespan (so tempo, sem geometria) para detectar "sem ganho" - invalidado ao mudar a selecao
   lastFrameTs: null,
   lastPanelRefresh: 0,
   carregando: false,
+  seletor: { cdTemp: null, entregaTemp: null, filtro: "" }, // estado temporario do modal de localizacoes
 };
 
 function formatMin(min) {
@@ -61,11 +63,9 @@ function minToTimeStr(min) {
 /** Calcula so o makespan (mais rapido, sem buscar geometria) - usado para comparacoes. */
 function calcularMakespan(n) {
   if (state.makespanCache[n] !== undefined) return state.makespanCache[n];
-  const cdIdx = AppData.getCdId();
-  const indicesEntrega = AppData.getIndicesEntrega();
   const { rotas } = Otimizacao.resolverVRP(
-    indicesEntrega,
-    cdIdx,
+    state.entregaIds,
+    state.cdId,
     AppData.getMunicipiosPorId(),
     AppData.getMatrizDist(),
     AppData.getMatrizTempo(),
@@ -74,6 +74,15 @@ function calcularMakespan(n) {
   const makespan = Math.max(...rotas.map((r) => r.tempoMin));
   state.makespanCache[n] = makespan;
   return makespan;
+}
+
+/** Recalcula a linha de base "ingenua" e limpa caches dependentes da selecao de municipios/CD. */
+function recalcularBaseline() {
+  state.makespanCache = {};
+  state.naiveTrilha = null;
+  const ing = AppData.getCenarioIngenuo(state.cdId, state.entregaIds);
+  state.tempoIngenuoMin = ing.tempoMin;
+  state.distIngenuoKm = ing.distKm;
 }
 
 // ---------------------------------------------------------------- cenario
@@ -85,8 +94,8 @@ async function gerarCenario(nSolicitado) {
   document.getElementById("map-loading").style.display = "flex";
   document.getElementById("map-loading").textContent = "Calculando rotas…";
 
-  const cdIdx = AppData.getCdId();
-  const indicesEntrega = AppData.getIndicesEntrega();
+  const cdIdx = state.cdId;
+  const indicesEntrega = state.entregaIds;
   const municipiosPorId = AppData.getMunicipiosPorId();
   const matrizDist = AppData.getMatrizDist();
   const matrizTempo = AppData.getMatrizTempo();
@@ -162,7 +171,7 @@ function atualizarBanner(nSolicitado, nUtil, nIdle) {
     banner.hidden = false;
     banner.className = "fleet-banner banner-idle";
     banner.textContent =
-      `⚠ Você configurou ${nSolicitado} veículos, mas há apenas ${state.nMunicipiosEntrega} municípios de entrega. ` +
+      `⚠ Você configurou ${nSolicitado} veículos, mas há apenas ${state.entregaIds.length} municípios de entrega. ` +
       `${nIdle} veículo(s) ficará(ão) parado(s) no CD, sem rota atribuída — não são necessários para esta operação.`;
     return;
   }
@@ -184,11 +193,16 @@ function atualizarBanner(nSolicitado, nUtil, nIdle) {
   banner.hidden = true;
 }
 
-function atualizarIngenua() {
+async function atualizarIngenua() {
   MapView.limparIngenua();
   if (state.showNaive) {
     if (!state.naiveTrilha) {
-      const ing = AppData.getCenarioIngenuo();
+      const ing = AppData.getCenarioIngenuo(state.cdId, state.entregaIds);
+      const pares = [];
+      for (let k = 0; k < ing.tourIds.length - 1; k++) {
+        if (ing.tourIds[k] !== ing.tourIds[k + 1]) pares.push([ing.tourIds[k], ing.tourIds[k + 1]]);
+      }
+      await AppData.garantirArestas(pares);
       state.naiveTrilha = AppData.montarTrilha(ing.tourIds);
     }
     MapView.desenharIngenua(state.naiveTrilha);
@@ -377,6 +391,98 @@ function loopAnimacao(ts) {
   requestAnimationFrame(loopAnimacao);
 }
 
+// ---------------------------------------------------------------- seletor de localizacoes
+
+function abrirSeletorLocais() {
+  state.seletor.cdTemp = state.cdId;
+  state.seletor.entregaTemp = new Set(state.entregaIds);
+  state.seletor.filtro = "";
+  document.getElementById("input-loc-search").value = "";
+  document.getElementById("loc-modal-backdrop").hidden = false;
+  renderSeletorLocais();
+}
+
+function fecharSeletorLocais() {
+  document.getElementById("loc-modal-backdrop").hidden = true;
+}
+
+function renderSeletorLocais() {
+  const lista = document.getElementById("loc-list");
+  const todos = AppData.getTodosMunicipios();
+  const filtro = state.seletor.filtro.toLocaleLowerCase("pt-BR");
+
+  const filtrados = todos
+    .filter((m) => !filtro || m.nome.toLocaleLowerCase("pt-BR").includes(filtro))
+    .sort((a, b) => b.populacao_2021 - a.populacao_2021);
+
+  lista.innerHTML = filtrados
+    .map((m) => {
+      const isCd = state.seletor.cdTemp === m.id;
+      const isEntrega = state.seletor.entregaTemp.has(m.id);
+      return `
+        <div class="loc-row ${isCd ? "loc-row-cd" : ""}">
+          <label class="loc-radio" title="Definir como Centro de Distribuição">
+            <input type="radio" name="loc-cd" value="${m.id}" ${isCd ? "checked" : ""} />
+            CD
+          </label>
+          <label class="loc-checkbox">
+            <input type="checkbox" data-id="${m.id}" class="loc-entrega-chk" ${isEntrega ? "checked" : ""} ${isCd ? "disabled" : ""} />
+          </label>
+          <span class="loc-name">${m.nome}</span>
+          <span class="loc-pop">${m.populacao_2021.toLocaleString("pt-BR")} hab.</span>
+        </div>
+      `;
+    })
+    .join("");
+
+  lista.querySelectorAll('input[name="loc-cd"]').forEach((radio) => {
+    radio.addEventListener("change", (e) => {
+      const novoId = Number(e.target.value);
+      state.seletor.entregaTemp.delete(novoId);
+      state.seletor.cdTemp = novoId;
+      renderSeletorLocais();
+    });
+  });
+
+  lista.querySelectorAll(".loc-entrega-chk").forEach((chk) => {
+    chk.addEventListener("change", (e) => {
+      const id = Number(e.target.dataset.id);
+      if (e.target.checked) state.seletor.entregaTemp.add(id);
+      else state.seletor.entregaTemp.delete(id);
+      atualizarContadorSeletor();
+    });
+  });
+
+  atualizarContadorSeletor();
+}
+
+function atualizarContadorSeletor() {
+  document.getElementById("loc-count").textContent = `${state.seletor.entregaTemp.size} município(s) de entrega selecionado(s)`;
+}
+
+async function aplicarSelecaoLocais() {
+  if (state.seletor.entregaTemp.size === 0) {
+    alert("Selecione ao menos um município de entrega.");
+    return;
+  }
+  state.cdId = state.seletor.cdTemp;
+  state.entregaIds = Array.from(state.seletor.entregaTemp);
+
+  MapView.desenharCD(AppData.getMunicipio(state.cdId));
+  recalcularBaseline();
+  fecharSeletorLocais();
+
+  const nAlvo = Math.min(state.nVeiculosSolicitados, state.entregaIds.length) || 1;
+  await gerarCenario(nAlvo);
+}
+
+function restaurarPresetPadrao() {
+  const meta = AppData.getMeta();
+  state.seletor.cdTemp = meta.cd_id_padrao;
+  state.seletor.entregaTemp = new Set(meta.entrega_ids_padrao);
+  renderSeletorLocais();
+}
+
 // ---------------------------------------------------------------- eventos de UI
 
 function ligarEventos() {
@@ -410,20 +516,32 @@ function ligarEventos() {
     state.showNaive = e.target.checked;
     atualizarIngenua();
   });
+
+  document.getElementById("btn-locations").addEventListener("click", abrirSeletorLocais);
+  document.getElementById("btn-loc-close").addEventListener("click", fecharSeletorLocais);
+  document.getElementById("btn-loc-cancel").addEventListener("click", fecharSeletorLocais);
+  document.getElementById("btn-loc-apply").addEventListener("click", aplicarSelecaoLocais);
+  document.getElementById("btn-loc-restore").addEventListener("click", restaurarPresetPadrao);
+  document.getElementById("loc-modal-backdrop").addEventListener("click", (e) => {
+    if (e.target.id === "loc-modal-backdrop") fecharSeletorLocais();
+  });
+  document.getElementById("input-loc-search").addEventListener("input", (e) => {
+    state.seletor.filtro = e.target.value;
+    renderSeletorLocais();
+  });
 }
 
 // ---------------------------------------------------------------- boot
 
 async function iniciar() {
   MapView.init();
-  await AppData.carregar();
+  const solution = await AppData.carregar();
 
-  MapView.desenharCD(AppData.getMunicipio(AppData.getCdId()));
+  state.cdId = solution.meta.cd_id_padrao;
+  state.entregaIds = solution.meta.entrega_ids_padrao.slice();
 
-  state.nMunicipiosEntrega = AppData.getIndicesEntrega().length;
-  const ing = AppData.getCenarioIngenuo();
-  state.tempoIngenuoMin = ing.tempoMin;
-  state.distIngenuoKm = ing.distKm;
+  MapView.desenharCD(AppData.getMunicipio(state.cdId));
+  recalcularBaseline();
 
   ligarEventos();
   await gerarCenario(1);
