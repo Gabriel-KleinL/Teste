@@ -1,314 +1,38 @@
-/**
- * Estado da aplicacao, orquestracao da simulacao (relogio simulado,
- * animacao dos veiculos) e renderizacao dos paineis de frota/resumo.
- */
+/** Estado, configuração dinâmica, métricas e simulação da frota. */
+const state = { nVeiculos:1,maxFrota:1,veiculos:[],vehicleConfig:[],catalogo:[],apiOnline:false,simClockMin:360,playing:false,speedMinPorSeg:20,showNaive:false,naiveTrilha:null,tempoSingleVehicleMin:0,tempoIngenuoMin:0,lastFrameTs:null,lastPanelRefresh:0 };
+const formatMin = min => `${Math.floor(min/60)}h${String(Math.round(min%60)).padStart(2,"0")}min`;
+function formatClock(min){const d=Math.floor(min/1440),h=String(Math.floor(min/60)%24).padStart(2,"0"),m=String(Math.floor(min%60)).padStart(2,"0");return `${h}:${m}${d?` (dia ${d+1})`:""}`;}
+const timeStrToMin=s=>{const [h,m]=s.split(":").map(Number);return h*60+m;};
+const minToTimeStr=m=>`${String(Math.floor(m/60)%24).padStart(2,"0")}:${String(Math.floor(m%60)).padStart(2,"0")}`;
 
-const state = {
-  nVeiculos: 1,
-  maxFrota: 1,
-  veiculos: [], // { idx, cor, tourNomes, municipiosAtendidos, distKm, tempoMin, trilha, departureMin, carMarker, status }
-  simClockMin: 360, // 06:00
-  playing: false,
-  speedMinPorSeg: 20,
-  showNaive: false,
-  naiveTrilha: null,
-  tempoSingleVehicleMin: null,
-  tempoIngenuoMin: null,
-  distIngenuoKm: null,
-  lastFrameTs: null,
-  lastPanelRefresh: 0,
-};
-
-function formatMin(min) {
-  const h = Math.floor(min / 60);
-  const m = Math.round(min % 60);
-  return `${h}h${String(m).padStart(2, "0")}min`;
+function ensureVehicleConfig(n){while(state.vehicleConfig.length<n){const i=state.vehicleConfig.length;state.vehicleConfig.push({capacidade:30,horario_saida:minToTimeStr(480+i*30),custo_km:2.5,custo_hora:30});}}
+function renderVehicleConfig(){ensureVehicleConfig(state.nVeiculos);const el=document.getElementById("vehicle-config-list");el.innerHTML=state.vehicleConfig.slice(0,state.nVeiculos).map((v,i)=>`<label class="vehicle-config-item">Veículo ${i+1}<br>Capacidade<input type="number" min="1" value="${v.capacidade}" data-vcfg="capacidade" data-vidx="${i}">Saída<input type="time" value="${v.horario_saida}" data-vcfg="horario_saida" data-vidx="${i}"></label>`).join("");el.querySelectorAll("[data-vcfg]").forEach(input=>input.addEventListener("change",e=>{const v=state.vehicleConfig[Number(e.target.dataset.vidx)];v[e.target.dataset.vcfg]=e.target.dataset.vcfg==="capacidade"?Number(e.target.value):e.target.value;}));}
+function carregarCenario(n){
+  state.nVeiculos=Math.max(1,Math.min(n,state.maxFrota));ensureVehicleConfig(state.nVeiculos);
+  const cenario=AppData.getCenario(state.nVeiculos);MapView.limparRotas();const trilhas=[];
+  state.veiculos=cenario.rotas.map((r,idx)=>{const trilha=AppData.montarTrilha(r.tourIds),cfg=state.vehicleConfig[idx],carMarker=MapView.desenharRota(idx,trilha,trilha.paradas);trilhas.push(trilha);
+    const departureMin=r.saidaMin??timeStrToMin(cfg.horario_saida);const paradas=(r.paradas||trilha.paradas.map(p=>({...p,chegada_min:departureMin+p.t,fim_servico_min:departureMin+p.t,demanda:0}))).map(p=>({...p,chegadaMin:p.chegada_min,fimServicoMin:p.fim_servico_min}));
+    return {idx,cor:MapView.corVeiculo(idx),tourNomes:r.tourNomes,municipiosAtendidos:r.municipiosAtendidos,distKm:r.distKm,tempoMin:r.tempoMin,trilha,departureMin,fimMin:r.fimMin??departureMin+r.tempoMin,carga:r.carga??r.municipiosAtendidos.length,capacidade:r.capacidade??cfg.capacidade,custoEstimado:r.custoEstimado,paradas,carMarker,status:"aguardando"};});
+  MapView.ajustarZoomPara(trilhas);document.getElementById("fleet-size-display").textContent=state.nVeiculos===1?"1 veículo":`${state.nVeiculos} veículos`;renderVehicleConfig();resetarRelogio();renderFleetPanel();renderSummaryPanel();atualizarIngenua();
 }
-
-function formatClock(absMin) {
-  const dayOffset = Math.floor(absMin / 1440);
-  const hh = String(Math.floor(absMin / 60) % 24).padStart(2, "0");
-  const mm = String(Math.floor(absMin % 60)).padStart(2, "0");
-  return dayOffset > 0 ? `${hh}:${mm} (dia ${dayOffset + 1})` : `${hh}:${mm}`;
+function atualizarIngenua(){MapView.limparIngenua();if(state.showNaive){if(!state.naiveTrilha)state.naiveTrilha=AppData.montarTrilha(AppData.getCenarioIngenuo().tourIds);MapView.desenharIngenua(state.naiveTrilha);}}
+const statusInfo=s=>({aguardando:["status-aguardando","Aguardando"],transito:["status-transito","Em trânsito"],entregando:["status-entregando","Entregando"],retornando:["status-retornando","Retornando"],concluido:["status-concluida","Concluído"]}[s]);
+function renderFleetPanel(){
+  const container=document.getElementById("fleet-list");container.innerHTML="";
+  state.veiculos.forEach(v=>{const [cls,label]=statusInfo(v.status),stops=v.paradas.map((p,i)=>`<li class="${state.simClockMin>=p.fimServicoMin?"visited":""}">${v.municipiosAtendidos[i]||p.nome} <span class="eta">ETA ${formatClock(p.chegadaMin)}</span></li>`).join("");const card=document.createElement("div");card.className="vehicle-card";card.style.borderLeftColor=v.cor;
+    card.innerHTML=`<div class="vehicle-card-header"><span class="vehicle-name"><span class="vehicle-dot" style="background:${v.cor}"></span>Veículo ${v.idx+1}</span><span class="vehicle-status ${cls}">${label}</span></div><div class="vehicle-constraints"><label>Saída<input type="time" value="${minToTimeStr(v.departureMin)}" data-field="saida" data-idx="${v.idx}"></label><label>Capacidade<input type="number" min="1" value="${v.capacidade}" data-field="capacidade" data-idx="${v.idx}"></label></div><div class="vehicle-meta"><span>Distância: <b>${v.distKm.toFixed(0)} km</b></span><span>Tempo: <b>${formatMin(v.tempoMin)}</b></span><span>Carga: <b>${v.carga}/${v.capacidade}</b></span></div><div class="vehicle-stops"><ol>${stops}</ol></div>`;container.appendChild(card);});
+  container.querySelectorAll("input[data-field]").forEach(input=>input.addEventListener("change",e=>{const idx=Number(e.target.dataset.idx),cfg=state.vehicleConfig[idx],v=state.veiculos[idx];if(e.target.dataset.field==="saida"){const novo=timeStrToMin(e.target.value),delta=novo-v.departureMin;cfg.horario_saida=e.target.value;v.departureMin=novo;v.fimMin+=delta;v.paradas.forEach(p=>{p.chegadaMin+=delta;p.fimServicoMin+=delta;});}else{cfg.capacidade=Number(e.target.value);v.capacidade=cfg.capacidade;}renderSummaryPanel();}));
 }
-
-function timeStrToMin(hhmm) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return h * 60 + m;
+function renderSummaryPanel(){const vs=state.veiculos;if(!vs.length)return;const ativas=vs.filter(v=>v.carga>0),dist=vs.reduce((s,v)=>s+v.distKm,0),tempo=vs.reduce((s,v)=>s+v.tempoMin,0),inicio=Math.min(...ativas.map(v=>v.departureMin)),fim=Math.max(...ativas.map(v=>v.fimMin)),makespan=fim-inicio,carga=vs.reduce((s,v)=>s+v.carga,0),cap=vs.reduce((s,v)=>s+v.capacidade,0),custo=vs.reduce((s,v)=>s+(v.custoEstimado??v.distKm*2.5+v.tempoMin/60*30),0);
+  document.getElementById("summary-grid").innerHTML=[ [`${dist.toFixed(0)} km`,`Distância total`],[formatMin(tempo),`Tempo dos motoristas`],[formatMin(makespan),`Makespan real`],[`${(carga/cap*100).toFixed(0)}%`,`Utilização da frota`],[`${carga}/${cap}`,`Carga / capacidade`],[custo.toLocaleString("pt-BR",{style:"currency",currency:"BRL"}),`Custo estimado`] ].map(([v,l])=>`<div class="stat-card"><div class="stat-value">${v}</div><div class="stat-label">${l}</div></div>`).join("");
+  const naive=state.tempoIngenuoMin,single=state.tempoSingleVehicleMin,max=Math.max(naive,single,makespan),bar=(l,v,c)=>`<div class="compare-bar-row"><span class="compare-bar-label">${l}</span><span class="compare-bar-track"><span class="compare-bar-fill ${c}" style="width:${v/max*100}%"></span></span><span class="compare-value">${formatMin(v)}</span></div>`;document.getElementById("summary-compare").innerHTML=`<div class="compare-title">Comparação de makespan (horários reais)</div>${bar("Rota ingênua",naive,"naive")}${bar("TSP + 2-opt",single,"single")}${bar(`Frota (${state.nVeiculos}v)`,makespan,"frota")}<div>Economia vs. ingênua: <span class="economia-pct">${((naive-makespan)/naive*100).toFixed(1)}%</span></div>`;
 }
-
-function minToTimeStr(min) {
-  const h = String(Math.floor(min / 60) % 24).padStart(2, "0");
-  const m = String(Math.floor(min % 60)).padStart(2, "0");
-  return `${h}:${m}`;
-}
-
-// ---------------------------------------------------------------- cenario
-
-function carregarCenario(n) {
-  state.nVeiculos = Math.max(1, Math.min(n, state.maxFrota));
-
-  const cenario = AppData.getCenario(state.nVeiculos);
-  MapView.limparRotas();
-
-  const trilhas = [];
-  state.veiculos = cenario.rotas.map((r, idx) => {
-    const trilha = AppData.montarTrilha(r.tourIds);
-    const carMarker = MapView.desenharRota(idx, trilha, trilha.paradas);
-    trilhas.push(trilha);
-    return {
-      idx,
-      cor: MapView.corVeiculo(idx),
-      tourNomes: r.tourNomes,
-      municipiosAtendidos: r.municipiosAtendidos,
-      distKm: r.distKm,
-      tempoMin: r.tempoMin,
-      trilha,
-      departureMin: 480 + idx * 90, // padrao: 08:00, 09:30, 11:00, ...
-      carMarker,
-      status: "aguardando",
-    };
-  });
-
-  MapView.ajustarZoomPara(trilhas);
-
-  document.getElementById("fleet-size-display").textContent =
-    state.nVeiculos === 1 ? "1 veículo" : `${state.nVeiculos} veículos`;
-
-  resetarRelogio();
-  renderFleetPanel();
-  renderSummaryPanel();
-  atualizarIngenua();
-}
-
-function atualizarIngenua() {
-  MapView.limparIngenua();
-  if (state.showNaive) {
-    if (!state.naiveTrilha) {
-      const ing = AppData.getCenarioIngenuo();
-      state.naiveTrilha = AppData.montarTrilha(ing.tourIds);
-    }
-    MapView.desenharIngenua(state.naiveTrilha);
-  }
-}
-
-// ---------------------------------------------------------------- painel de frota
-
-function renderFleetPanel() {
-  const container = document.getElementById("fleet-list");
-  container.innerHTML = "";
-
-  state.veiculos.forEach((v) => {
-    const card = document.createElement("div");
-    card.className = "vehicle-card";
-    card.style.borderLeftColor = v.cor;
-
-    const statusClass =
-      v.status === "aguardando" ? "status-aguardando" : v.status === "em-rota" ? "status-em-rota" : "status-concluida";
-    const statusLabel =
-      v.status === "aguardando" ? "Aguardando saída" : v.status === "em-rota" ? "Em rota" : "Entrega concluída";
-
-    const stopsHtml = v.municipiosAtendidos
-      .map((nome, i) => {
-        const parada = v.trilha.paradas[i];
-        const visitado = state.simClockMin >= v.departureMin + parada.t;
-        return `<li class="${visitado ? "visited" : ""}">${nome}</li>`;
-      })
-      .join("");
-
-    card.innerHTML = `
-      <div class="vehicle-card-header">
-        <span class="vehicle-name"><span class="vehicle-dot" style="background:${v.cor}"></span>Veículo ${v.idx + 1}</span>
-        <span class="vehicle-status ${statusClass}">${statusLabel}</span>
-      </div>
-      <div class="vehicle-departure">
-        Saída do CD:
-        <input type="time" value="${minToTimeStr(v.departureMin)}" data-idx="${v.idx}" class="input-departure" />
-      </div>
-      <div class="vehicle-meta">
-        <span>Municípios: <b>${v.municipiosAtendidos.length}</b></span>
-        <span>Distância: <b>${v.distKm.toFixed(0)} km</b></span>
-        <span>Tempo estimado: <b>${formatMin(v.tempoMin)}</b></span>
-      </div>
-      <div class="vehicle-stops">
-        <ol>${stopsHtml}</ol>
-      </div>
-    `;
-    container.appendChild(card);
-  });
-
-  container.querySelectorAll(".input-departure").forEach((input) => {
-    input.addEventListener("change", (e) => {
-      const idx = Number(e.target.dataset.idx);
-      state.veiculos[idx].departureMin = timeStrToMin(e.target.value);
-    });
-  });
-}
-
-// ---------------------------------------------------------------- painel de resumo
-
-function renderSummaryPanel() {
-  const grid = document.getElementById("summary-grid");
-  const distTotal = state.veiculos.reduce((s, v) => s + v.distKm, 0);
-  const municipiosTotal = state.veiculos.reduce((s, v) => s + v.municipiosAtendidos.length, 0);
-  const makespan = Math.max(...state.veiculos.map((v) => v.departureMin - 480 + v.tempoMin));
-
-  grid.innerHTML = `
-    <div class="stat-card"><div class="stat-value">${state.nVeiculos}</div><div class="stat-label">Veículo(s) na frota</div></div>
-    <div class="stat-card"><div class="stat-value">${municipiosTotal}</div><div class="stat-label">Municípios atendidos</div></div>
-    <div class="stat-card"><div class="stat-value">${distTotal.toFixed(0)} km</div><div class="stat-label">Distância total da operação</div></div>
-    <div class="stat-card"><div class="stat-value">${formatMin(makespan)}</div><div class="stat-label">Duração total da operação</div></div>
-  `;
-
-  const compare = document.getElementById("summary-compare");
-  const tempoIngenuo = state.tempoIngenuoMin;
-  const tempoSingle = state.tempoSingleVehicleMin;
-  const tempoFrotaMakespan = Math.max(...state.veiculos.map((v) => v.tempoMin));
-  const maxRef = Math.max(tempoIngenuo, tempoSingle);
-
-  const economiaVsIngenua = ((tempoIngenuo - tempoFrotaMakespan) / tempoIngenuo) * 100;
-
-  const bar = (label, value, cls) =>
-    `<div class="compare-bar-row">
-       <span class="compare-bar-label">${label}</span>
-       <span class="compare-bar-track"><span class="compare-bar-fill ${cls}" style="width:${(value / maxRef) * 100}%"></span></span>
-       <span class="compare-value">${formatMin(value)}</span>
-     </div>`;
-
-  compare.innerHTML = `
-    <div class="compare-title">Comparação de tempo total (menor é melhor)</div>
-    ${bar("Rota ingênua", tempoIngenuo, "naive")}
-    ${bar("Veículo único", tempoSingle, "single")}
-    ${bar(`Frota (${state.nVeiculos}v)`, tempoFrotaMakespan, "frota")}
-    <div style="margin-top:8px;">
-      Economia da frota atual vs. rota ingênua:
-      <span class="economia-pct">${economiaVsIngenua.toFixed(1)}%</span>
-    </div>
-  `;
-}
-
-// ---------------------------------------------------------------- simulacao
-
-function resetarRelogio() {
-  state.simClockMin = 360;
-  state.playing = false;
-  state.lastFrameTs = null;
-  document.getElementById("btn-play").textContent = "▶ Play";
-  document.getElementById("btn-play").classList.remove("playing");
-  atualizarPosicoes();
-  document.getElementById("sim-clock-display").textContent = formatClock(state.simClockMin);
-}
-
-function atualizarPosicoes() {
-  state.veiculos.forEach((v) => {
-    const elapsed = state.simClockMin - v.departureMin;
-    let status;
-    let pos;
-
-    if (elapsed < 0) {
-      status = "aguardando";
-      pos = v.trilha.pontos[0];
-    } else if (elapsed >= v.trilha.tempoTotalMin) {
-      status = "concluida";
-      pos = v.trilha.pontos[v.trilha.pontos.length - 1];
-    } else {
-      status = "em-rota";
-      pos = interpolarPosicao(v.trilha.pontos, elapsed);
-    }
-
-    v.status = status;
-    MapView.moverCarro(v.carMarker, pos.lat, pos.lon);
-  });
-}
-
-function interpolarPosicao(pontos, t) {
-  // busca binaria pelo primeiro ponto com tempo >= t
-  let lo = 0;
-  let hi = pontos.length - 1;
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1;
-    if (pontos[mid].t < t) lo = mid + 1;
-    else hi = mid;
-  }
-  if (lo === 0) return pontos[0];
-  const b = pontos[lo];
-  const a = pontos[lo - 1];
-  const span = b.t - a.t;
-  const frac = span > 0 ? (t - a.t) / span : 0;
-  return { lat: a.lat + (b.lat - a.lat) * frac, lon: a.lon + (b.lon - a.lon) * frac };
-}
-
-function loopAnimacao(ts) {
-  if (state.playing) {
-    if (state.lastFrameTs != null) {
-      const deltaS = (ts - state.lastFrameTs) / 1000;
-      state.simClockMin += deltaS * state.speedMinPorSeg;
-    }
-    state.lastFrameTs = ts;
-
-    atualizarPosicoes();
-    document.getElementById("sim-clock-display").textContent = formatClock(state.simClockMin);
-
-    if (ts - state.lastPanelRefresh > 600) {
-      renderFleetPanel();
-      state.lastPanelRefresh = ts;
-    }
-  } else {
-    state.lastFrameTs = null;
-  }
-  requestAnimationFrame(loopAnimacao);
-}
-
-// ---------------------------------------------------------------- eventos de UI
-
-function ligarEventos() {
-  document.getElementById("btn-add-vehicle").addEventListener("click", () => {
-    if (state.nVeiculos < state.maxFrota) carregarCenario(state.nVeiculos + 1);
-  });
-  document.getElementById("btn-remove-vehicle").addEventListener("click", () => {
-    if (state.nVeiculos > 1) carregarCenario(state.nVeiculos - 1);
-  });
-
-  document.getElementById("btn-play").addEventListener("click", (e) => {
-    state.playing = !state.playing;
-    e.target.textContent = state.playing ? "⏸ Pause" : "▶ Play";
-    e.target.classList.toggle("playing", state.playing);
-  });
-
-  document.getElementById("btn-reset").addEventListener("click", resetarRelogio);
-
-  document.getElementById("sel-speed").addEventListener("change", (e) => {
-    state.speedMinPorSeg = Number(e.target.value);
-  });
-
-  document.getElementById("chk-naive").addEventListener("change", (e) => {
-    state.showNaive = e.target.checked;
-    atualizarIngenua();
-  });
-}
-
-// ---------------------------------------------------------------- boot
-
-async function iniciar() {
-  MapView.init();
-  const solution = await AppData.carregar();
-
-  MapView.desenharCD(AppData.getMunicipio(AppData.getCdId()));
-
-  state.maxFrota = AppData.getMaxFrota();
-  const ing = AppData.getCenarioIngenuo();
-  state.tempoIngenuoMin = ing.tempoMin;
-  state.distIngenuoKm = ing.distKm;
-  state.tempoSingleVehicleMin = AppData.getCenario(1).rotas[0].tempoMin;
-
-  ligarEventos();
-  carregarCenario(1);
-
-  document.getElementById("map-loading").style.display = "none";
-  requestAnimationFrame(loopAnimacao);
-}
-
-iniciar().catch((err) => {
-  console.error(err);
-  document.getElementById("map-loading").textContent = "Erro ao carregar dados: " + err.message;
-});
+function resetarRelogio(){state.simClockMin=360;state.playing=false;state.lastFrameTs=null;document.getElementById("btn-play").textContent="▶ Play";atualizarPosicoes();document.getElementById("sim-clock-display").textContent=formatClock(state.simClockMin);}
+function atualizarPosicoes(){state.veiculos.forEach(v=>{const agora=state.simClockMin,ativa=v.paradas.find(p=>agora>=p.chegadaMin&&agora<p.fimServicoMin);let pos,elapsed=Math.max(0,agora-v.departureMin)-v.paradas.filter(p=>agora>=p.fimServicoMin).reduce((s,p)=>s+p.fimServicoMin-p.chegadaMin,0);if(agora<v.departureMin){v.status="aguardando";pos=v.trilha.pontos[0];}else if(ativa){v.status="entregando";const m=AppData.getMunicipio(ativa.id);pos={lat:m.lat,lon:m.lon};}else if(agora>=v.fimMin){v.status="concluido";pos=v.trilha.pontos.at(-1);}else{v.status=v.paradas.length&&agora>=v.paradas.at(-1).fimServicoMin?"retornando":"transito";pos=interpolarPosicao(v.trilha.pontos,elapsed);}MapView.moverCarro(v.carMarker,pos.lat,pos.lon);});}
+function interpolarPosicao(p,t){let lo=0,hi=p.length-1;while(lo<hi){const mid=(lo+hi)>>1;if(p[mid].t<t)lo=mid+1;else hi=mid;}if(!lo)return p[0];const a=p[lo-1],b=p[lo],span=b.t-a.t,f=span>0?(t-a.t)/span:0;return{lat:a.lat+(b.lat-a.lat)*f,lon:a.lon+(b.lon-a.lon)*f};}
+function loopAnimacao(ts){if(state.playing){if(state.lastFrameTs!=null)state.simClockMin+=(ts-state.lastFrameTs)/1000*state.speedMinPorSeg;state.lastFrameTs=ts;atualizarPosicoes();document.getElementById("sim-clock-display").textContent=formatClock(state.simClockMin);if(ts-state.lastPanelRefresh>600){renderFleetPanel();state.lastPanelRefresh=ts;}}else state.lastFrameTs=null;requestAnimationFrame(loopAnimacao);}
+function renderMunicipios(){const selecionados=new Set(state.catalogo.filter(m=>m.nome!=="Serra").sort((a,b)=>b.populacao_2021-a.populacao_2021).slice(0,24).map(m=>m.codigo_ibge));document.getElementById("municipality-list").innerHTML=state.catalogo.filter(m=>m.nome!=="Serra").sort((a,b)=>a.nome.localeCompare(b.nome)).map(m=>`<label class="municipality-row"><input type="checkbox" data-city="${m.codigo_ibge}" ${selecionados.has(m.codigo_ibge)?"checked":""}><span>${m.nome}</span><input title="Demanda" type="number" min="0" value="1" data-demand><input title="Serviço (min)" type="number" min="0" value="15" data-service><input title="Início da janela" type="time" value="08:00" data-start><input title="Fim da janela" type="time" value="18:00" data-end></label>`).join("");}
+async function recalcular(){const btn=document.getElementById("btn-optimize");btn.disabled=true;btn.textContent="Calculando…";try{const entregas=[...document.querySelectorAll(".municipality-row")].filter(r=>r.querySelector("[data-city]").checked).map(r=>({codigo_ibge:r.querySelector("[data-city]").dataset.city,demanda:Number(r.querySelector("[data-demand]").value),tempo_servico_min:Number(r.querySelector("[data-service]").value),janela_inicio:r.querySelector("[data-start]").value,janela_fim:r.querySelector("[data-end]").value}));ensureVehicleConfig(state.nVeiculos);const sol=await AppData.otimizar({entregas,veiculos:state.vehicleConfig.slice(0,state.nVeiculos),solver:"ortools"});state.maxFrota=state.nVeiculos;state.naiveTrilha=null;state.tempoIngenuoMin=sol.cenario_ingenuo.tempo_min;state.tempoSingleVehicleMin=sol.cenario_single_vehicle.tempo_min;carregarCenario(state.nVeiculos);}catch(err){alert(err.message);}finally{btn.disabled=false;btn.textContent="Recalcular rotas";}}
+function ligarEventos(){document.getElementById("btn-add-vehicle").addEventListener("click",()=>{if(state.apiOnline){state.nVeiculos=Math.min(20,state.nVeiculos+1);state.maxFrota=Math.max(state.maxFrota,state.nVeiculos);ensureVehicleConfig(state.nVeiculos);document.getElementById("fleet-size-display").textContent=`${state.nVeiculos} veículos`;renderVehicleConfig();}else if(state.nVeiculos<state.maxFrota)carregarCenario(state.nVeiculos+1);});document.getElementById("btn-remove-vehicle").addEventListener("click",()=>{if(state.nVeiculos>1){state.nVeiculos--;if(!state.apiOnline)carregarCenario(state.nVeiculos);else{document.getElementById("fleet-size-display").textContent=state.nVeiculos===1?"1 veículo":`${state.nVeiculos} veículos`;renderVehicleConfig();}}});document.getElementById("btn-play").addEventListener("click",e=>{state.playing=!state.playing;e.target.textContent=state.playing?"⏸ Pause":"▶ Play";});document.getElementById("btn-reset").addEventListener("click",resetarRelogio);document.getElementById("sel-speed").addEventListener("change",e=>state.speedMinPorSeg=Number(e.target.value));document.getElementById("chk-naive").addEventListener("change",e=>{state.showNaive=e.target.checked;atualizarIngenua();});document.getElementById("btn-optimize").addEventListener("click",recalcular);document.getElementById("btn-select-all").addEventListener("click",()=>document.querySelectorAll("[data-city]").forEach(c=>c.checked=true));document.getElementById("btn-clear-cities").addEventListener("click",()=>document.querySelectorAll("[data-city]").forEach(c=>c.checked=false));}
+async function iniciar(){MapView.init();await AppData.carregar();MapView.desenharCD(AppData.getMunicipio(AppData.getCdId()));state.maxFrota=AppData.getMaxFrota();state.tempoIngenuoMin=AppData.getCenarioIngenuo().tempoMin;state.tempoSingleVehicleMin=AppData.getCenario(1).rotas[0].tempoMin;try{state.catalogo=await AppData.carregarCatalogo();state.apiOnline=true;document.getElementById("api-status").textContent="API online";document.getElementById("api-status").classList.add("online");}catch{state.catalogo=[];document.getElementById("api-status").textContent="modo offline";document.getElementById("btn-optimize").disabled=true;}renderMunicipios();ligarEventos();carregarCenario(1);document.getElementById("map-loading").style.display="none";requestAnimationFrame(loopAnimacao);}
+iniciar().catch(err=>{console.error(err);document.getElementById("map-loading").textContent="Erro ao carregar dados: "+err.message;});

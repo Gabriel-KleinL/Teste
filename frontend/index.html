@@ -57,6 +57,21 @@
   </section>
 
   <aside class="sidebar">
+    <div class="panel panel-config">
+      <div class="panel-title-row">
+        <h2>Planejamento dinâmico</h2>
+        <span id="api-status" class="api-status">verificando API…</span>
+      </div>
+      <div class="config-actions">
+        <button id="btn-select-all" class="btn-secondary">Todos</button>
+        <button id="btn-clear-cities" class="btn-secondary">Limpar</button>
+        <button id="btn-optimize" class="btn-primary">Recalcular rotas</button>
+      </div>
+      <div id="vehicle-config-list" class="vehicle-config-list"></div>
+      <div id="municipality-list" class="municipality-list"></div>
+      <p class="config-hint">Demanda, serviço e janela podem ser ajustados por município. Capacidade e saída são configuradas em cada veículo.</p>
+    </div>
+
     <div class="panel panel-summary">
       <h2>Resumo da Operação</h2>
       <div id="summary-grid" class="summary-grid"></div>
@@ -72,7 +87,7 @@
 
 <footer class="footer">
   Fonte das rotas: OSRM (roteamento real por rodovia) · Coordenadas e população: IBGE ·
-  Heurísticas: Vizinho mais próximo + 2-opt (TSP) / Varredura angular + TSP por veículo (VRP)
+  Solver principal: Google OR-Tools · Baselines: rota ingênua, TSP NN + 2-opt e VRP Sweep
 </footer>
 
 <script src="vendor/leaflet/leaflet.js"></script>

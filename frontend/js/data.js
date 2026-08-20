@@ -19,6 +19,28 @@ const AppData = (() => {
     return solution;
   }
 
+  function definirSolucao(novaSolucao) {
+    solution = novaSolucao;
+    municipiosPorId = {};
+    solution.municipios.forEach((m) => (municipiosPorId[m.id] = m));
+  }
+
+  async function carregarCatalogo() {
+    const resp = await fetch("/api/municipios");
+    if (!resp.ok) throw new Error("API indisponível");
+    return resp.json();
+  }
+
+  async function otimizar(payload) {
+    const resp = await fetch("/api/otimizar", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    const corpo = await resp.json();
+    if (!resp.ok) throw new Error(corpo.detail || "Falha ao otimizar");
+    definirSolucao(corpo);
+    return corpo;
+  }
+
   function getMunicipio(id) {
     return municipiosPorId[id];
   }
@@ -66,6 +88,12 @@ const AppData = (() => {
             municipiosAtendidos: c.tour_nomes.slice(1, -1),
             distKm: c.dist_km,
             tempoMin: c.tempo_min,
+            saidaMin: c.saida_min,
+            fimMin: c.fim_min,
+            carga: c.carga,
+            capacidade: c.capacidade,
+            custoEstimado: c.custo_estimado,
+            paradas: c.paradas,
           },
         ],
       };
@@ -80,6 +108,12 @@ const AppData = (() => {
         municipiosAtendidos: r.municipios_atendidos,
         distKm: r.dist_km,
         tempoMin: r.tempo_min,
+        saidaMin: r.saida_min,
+        fimMin: r.fim_min,
+        carga: r.carga,
+        capacidade: r.capacidade,
+        custoEstimado: r.custo_estimado,
+        paradas: r.paradas,
       })),
     };
   }
@@ -151,6 +185,9 @@ const AppData = (() => {
 
   return {
     carregar,
+    carregarCatalogo,
+    otimizar,
+    definirSolucao,
     getMunicipio,
     getCdId,
     getMeta,

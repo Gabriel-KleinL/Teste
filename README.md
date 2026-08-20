@@ -35,7 +35,23 @@ relatorio/relatorio.md   Relatório acadêmico completo (PT-BR)
 
 ## Como rodar
 
-### 1. Backend (opcional — regenerar os dados)
+### 1. Backend e API dinâmica
+
+Para iniciar a API e servir o frontend integrado:
+
+```bash
+cd backend
+pip install -r requirements.txt
+uvicorn api:app --reload
+```
+
+Acesse `http://localhost:8000` (Swagger em `/docs`). Com a API ativa, o
+painel permite escolher municípios, demandas, serviços, janelas, frota,
+capacidades e saídas. O OR-Tools resolve o CVRPTW, mantendo o Sweep como
+fallback e baseline. Sem a API, o frontend continua usando
+`frontend/data/solution.json`.
+
+#### Pipeline acadêmico offline (preservado)
 
 O arquivo `frontend/data/solution.json` já está gerado e versionado no
 repositório, então **não é necessário rodar o backend para usar a
@@ -73,9 +89,8 @@ carregar os mosaicos do mapa (OpenStreetMap) — o restante da aplicação
   entrega mais populosos do estado), dentro da faixa de 20–30 sugerida.
 - **OSRM** (instância pública) para distância/tempo/geometria reais de
   estrada, com fallback automático por Haversine caso a rede falhe.
-- **Frotas de 1 a 5 veículos** pré-computadas pelo backend; o frontend
-  alterna entre esses cenários (em vez de recalcular VRP ao vivo no
-  navegador, o que exigiria um backend em produção).
+- **Modo dinâmico via FastAPI** com OR-Tools e restrições operacionais;
+  sem a API, o frontend alterna os cenários pré-computados de 1 a 5 veículos.
 - **Leaflet + JavaScript vanilla** (sem framework/build step) para o
   frontend, priorizando simplicidade de execução e ausência de
   dependência de CDN.
